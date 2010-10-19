@@ -1,0 +1,136 @@
+//******************************************************************************
+//+--------------------------------------------------------------------------+**
+//|                            ****                                          |**
+//|                            ****                                          |**
+//|                            ******o***                                    |**
+//|                      ********_///_****                                   |**
+//|                      ***** /_//_/ ****                                   |**
+//|                       ** ** (__/ ****                                    |**
+//|                           *********                                      |**
+//|                            ****                                          |**
+//|                            ***                                           |**
+//|                                                                          |**
+//|         Copyright (c) 1998-2010 Texas Instruments Incorporated           |**
+//|                        ALL RIGHTS RESERVED                               |**
+//|                                                                          |**
+//| Permission is hereby granted to licensees of Texas Instruments           |**
+//| Incorporated (TI) products to use this computer program for the sole     |**
+//| purpose of implementing a licensee product based on TI products.         |**
+//| No other rights to reproduce, use, or disseminate this computer          |**
+//| program, whether in part or in whole, are granted.                       |**
+//|                                                                          |**
+//| TI makes no representation or warranties with respect to the             |**
+//| performance of this computer program, and specifically disclaims         |**
+//| any responsibility for any damages, special or consequential,            |**
+//| connected with the use of this program.                                  |**
+//|                                                                          |**
+//+--------------------------------------------------------------------------+**
+//*****************************************************************************/
+// file:   PRU_misc_operations.hp
+//
+// brief:  PRU Misc operatrions assembly constants.
+//
+//
+//  (C) Copyright 2010, Texas Instruments, Inc
+//
+//  author     M. Watkins
+//
+//  version    0.1     Created
+
+
+#ifndef _PRU_misc_operations_HP_
+#define _PRU_misc_operations_HP_
+
+
+// ***************************************
+// *      Global Macro definitions       *
+// ***************************************
+
+// Refer to this mapping in the file - \prussdrv\include\pruss_intc_mapping.h
+#define PRU0_PRU1_INTERRUPT     32
+#define PRU1_PRU0_INTERRUPT     33
+#define PRU0_ARM_INTERRUPT      34
+#define PRU1_ARM_INTERRUPT      35
+#define ARM_PRU0_INTERRUPT      36
+#define ARM_PRU1_INTERRUPT      37
+
+#define dst_loc_maskshift C4
+
+#define CONST_PRU0DRAM   C3
+#define CONST_PRU1DRAM   C4
+#define CONST_HPI       C15
+#define CONST_DSPL2     C28
+#define CONST_L3RAM     C30
+#define CONST_DDR       C31
+
+// Address for the Constant table Programmable Pointer Register 0(CTPPR_0)	 		
+#define CTPPR_0         0x7028 
+// Address for the Constant table Programmable Pointer Register 1(CTPPR_1)	 		
+#define CTPPR_1         0x702C 	
+
+
+.macro  MOV32               
+.mparam dst, src
+    MOV     dst.w0, src & 0xFFFF
+    MOV     dst.w2, src >> 16
+.endm
+
+.macro  LD32
+.mparam dst,src
+    LBBO    dst,src,#0x00,4
+.endm
+
+.macro  LD16
+.mparam dst,src
+    LBBO    dst,src,#0x00,2
+.endm
+
+.macro  LD8
+.mparam dst,src
+    LBBO    dst,src,#0x00,1
+.endm
+
+.macro ST32
+.mparam src,dst
+    SBBO    src,dst,#0x00,4
+.endm
+
+.macro ST16
+.mparam src,dst
+    SBBO    src,dst,#0x00,2
+.endm
+
+.macro ST8
+.mparam src,dst
+    SBBO    src,dst,#0x00,1
+.endm
+
+
+#define max_shift_mask      0xF0000000
+#define Mask_4bit_extract   0xF
+#define Shift               4
+#define N_extracts          8
+#define threshold           8
+
+
+// ***************************************
+// *    Global Structure Definitions     *
+// ***************************************
+
+
+// ***************************************
+// *     Global Register Assignments     *
+// ***************************************
+
+#define data_str_reg        r8
+#define temp                r9
+#define MASK_reg            r10
+
+#define offset              r13.b0
+#define Shift_reg           r13.b1
+#define temp_sort           r13.b2
+#define cnt                 r13.b3
+
+#define max_shift_mask_reg  r14
+
+#endif //_PRU_misc_operations_HP_

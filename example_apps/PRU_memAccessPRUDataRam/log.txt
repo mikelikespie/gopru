@@ -1,0 +1,7 @@
+INFO: Starting PRU_memAccessPRUDataRam example.
+        INFO: Initializing example.
+        INFO: Executing example.
+File ./PRU_memAccessPRUDataRam.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+INFO: Example executed succesfully.

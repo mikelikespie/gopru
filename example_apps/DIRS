@@ -1,0 +1,19 @@
+DIRS :=
+
+DIRS := PRU_access_const_table
+DIRS += PRU_ARMtoPRU_Interrupt
+DIRS += PRU_edmaConfig
+DIRS += PRU_gpioToggle
+DIRS += PRU_mem1DTransfer
+DIRS += PRU_memAccessL3
+DIRS += PRU_memAccessL3andDDR
+DIRS += PRU_memAccessPRUDataRam
+DIRS += PRU_memCopy
+DIRS += PRU_miscOperations
+DIRS += PRU_multiply
+DIRS += PRU_PRUtoARM_Interrupt
+DIRS += PRU_PRUtoPRU_Interrupt
+DIRS += PRU_semaphore
+DIRS += PRU_timer2Interrupt
+
+DESTDIR ?=

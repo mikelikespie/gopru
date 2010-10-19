@@ -1,0 +1,157 @@
+//******************************************************************************
+//+--------------------------------------------------------------------------+**
+//|                            ****                                          |**
+//|                            ****                                          |**
+//|                            ******o***                                    |**
+//|                      ********_///_****                                   |**
+//|                      ***** /_//_/ ****                                   |**
+//|                       ** ** (__/ ****                                    |**
+//|                           *********                                      |**
+//|                            ****                                          |**
+//|                            ***                                           |**
+//|                                                                          |**
+//|         Copyright (c) 1998-2010 Texas Instruments Incorporated           |**
+//|                        ALL RIGHTS RESERVED                               |**
+//|                                                                          |**
+//| Permission is hereby granted to licensees of Texas Instruments           |**
+//| Incorporated (TI) products to use this computer program for the sole     |**
+//| purpose of implementing a licensee product based on TI products.         |**
+//| No other rights to reproduce, use, or disseminate this computer          |**
+//| program, whether in part or in whole, are granted.                       |**
+//|                                                                          |**
+//| TI makes no representation or warranties with respect to the             |**
+//| performance of this computer program, and specifically disclaims         |**
+//| any responsibility for any damages, special or consequential,            |**
+//| connected with the use of this program.                                  |**
+//|                                                                          |**
+//+--------------------------------------------------------------------------+**
+//*****************************************************************************/
+// file:   PRU_edmaConfig.hp
+//
+// brief:  PRU_edmaConfig hardware specific header file.
+//
+//
+//  (C) Copyright 2010, Texas Instruments, Inc
+//
+//  author     M. Watkins
+
+
+#ifndef	__PRU_EDMACONFIG_HP_
+#define	__PRU_EDMACONFIG_HP_
+
+// ***************************************
+// *      Global Macro definitions       *
+// ***************************************
+
+// Refer to this mapping in the file - \prussdrv\include\pruss_intc_mapping.h
+#define PRU0_PRU1_INTERRUPT     32
+#define PRU1_PRU0_INTERRUPT     33
+#define PRU0_ARM_INTERRUPT      34
+#define PRU1_ARM_INTERRUPT      35
+#define ARM_PRU0_INTERRUPT      36
+#define ARM_PRU1_INTERRUPT      37
+
+
+#define CONST_PRUDRAM   C3
+#define CONST_HPI       C15
+#define CONST_DSPL2     C28
+#define CONST_L3RAM     C30
+#define CONST_DDR       C31
+
+//DATA RAM1 is used as shared memory between PRU0 and PRU1
+#define PRUPRU_SHARED_MEM_BASE 0x0
+
+//-----------------------------------
+// macro: wait
+//
+// wait for a given "delay"
+// amount of time
+//-----------------------------------
+.macro wait
+.mparam delay
+nothing:
+	sub 	delay, delay, 1
+	qblt	nothing, delay, 0
+.endm
+
+//------------------------------------
+// macro: MOV32
+//
+// moves a 32 bit value into register
+//------------------------------------
+
+// mov32 : Move a 32bit value to a register
+.macro  MOV32               
+.mparam arg1, arg2
+        mov     arg1.w0, arg2 & 0xFFFF
+        mov     arg1.w2, arg2 >> 16
+.endm       
+
+// ***************************************
+// *     Global Register Assignments     *
+// ***************************************
+
+// PROFIBUS specific configuration
+//R0-R18 available for functions
+#define EmptyqueuePtrReg R18.w2
+#define OutqueueFuncLinkReg R18.w0
+#define InqueueFuncLinkReg R19.w2
+#define GetSapEntryLinkReg R19.w0
+#define StackPtr     R20
+#define HOSTINTPRIIDX1 R21
+#define CallRegister R22.w2
+#define PRU_EDMA_CHANNEL R22.w0
+#define PRU_EDMA_CHANNEL_MASK R23
+#define EDMA_PARAM_BASE R24   
+#define EDMA_BASE   R25
+#define L3_MEM_START_ADDR R26 //Helps especially doing EDMA copies - don't need to load this to src/dst registers every call
+#define SRC_ADDR R27
+#define DST_ADDR R28
+#define	LENGTH R29
+#define EventReg    R31
+#define EventBitPos 31 // PRU1 interrupt from INTC
+
+
+//EDMA registers
+#define EDMA0_CC_BASE 0x01C00000
+#define DMAQNUM0    0x0240
+#define QUEPRI      0x0284
+#define EMR         0x0300
+#define EMCR        0x0308
+#define EMCRH       0x030C
+#define QEMCR       0x0314
+#define CCERRCLR    0x031C
+#define DRAE0	    0x0340
+#define DRAE1	    0x0348
+#define DRAE2	    0x0350
+#define DRAE3	    0x0358
+#define QWMTHRA     0x0620
+#define GLOBAL_ESR  0x1010
+#define GLOBAL_EECR	0x1028
+#define GLOBAL_SECR	0x1040
+#define GLOBAL_IESR 0x1060
+#define GLOBAL_ICR  0x1070
+#define ESR         0x2410
+#define EECR	    0x2428
+#define SECR	    0x2440
+#define IPR         0x2468
+#define ICR         0x2470
+#define IESR	    0x2460
+#define	IEVAL	    0x2478
+#define IECR	    0x2458
+
+
+//EDMA PARAM registers
+#define PARAM_OFFSET    0x4000
+#define OPT             0x00
+#define SRC             0x04
+#define A_B_CNT         0x08
+#define DST             0x0C
+#define SRC_DST_BIDX    0x10
+#define LINK_BCNTRLD    0x14
+#define SRC_DST_CIDX    0x18
+#define CCNT            0x1C
+
+#define PruDmaChannel  	0x1C7C
+
+#endif  //_PRU_edmaConfig_HP_

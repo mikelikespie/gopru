@@ -1,0 +1,81 @@
+//******************************************************************************
+//+--------------------------------------------------------------------------+**
+//|                            ****                                          |**
+//|                            ****                                          |**
+//|                            ******o***                                    |**
+//|                      ********_///_****                                   |**
+//|                      ***** /_//_/ ****                                   |**
+//|                       ** ** (__/ ****                                    |**
+//|                           *********                                      |**
+//|                            ****                                          |**
+//|                            ***                                           |**
+//|                                                                          |**
+//|         Copyright (c) 1998-2010 Texas Instruments Incorporated           |**
+//|                        ALL RIGHTS RESERVED                               |**
+//|                                                                          |**
+//| Permission is hereby granted to licensees of Texas Instruments           |**
+//| Incorporated (TI) products to use this computer program for the sole     |**
+//| purpose of implementing a licensee product based on TI products.         |**
+//| No other rights to reproduce, use, or disseminate this computer          |**
+//| program, whether in part or in whole, are granted.                       |**
+//|                                                                          |**
+//| TI makes no representation or warranties with respect to the             |**
+//| performance of this computer program, and specifically disclaims         |**
+//| any responsibility for any damages, special or consequential,            |**
+//| connected with the use of this program.                                  |**
+//|                                                                          |**
+//+--------------------------------------------------------------------------+**
+//*****************************************************************************/
+// file:   pinmux_def.hp
+//
+// brief:  This header file defines pinmux base values
+//
+//
+//  (C) Copyright 2010, Texas Instruments, Inc
+//
+//  author     Amit Chatterjee
+//
+//  version    0.1     Created
+//
+
+#ifndef __pinmux_def_hp
+#define __pinmux_def_hp 1
+
+#define SYS_BASE        0x01C14100
+#define PINMUX0         0x20
+#define PINMUX1         0x24
+#define PINMUX2         0x28
+#define PINMUX3         0x2C
+#define PINMUX4         0x30
+#define PINMUX5         0x34
+#define PINMUX6         0x38
+#define PINMUX7         0x3C
+#define PINMUX8         0x40
+#define PINMUX9         0x44
+#define PINMUX10        0x48
+#define PINMUX11        0x4C
+#define PINMUX12        0x50
+#define PINMUX13        0x54
+#define PINMUX14        0x58
+#define PINMUX15        0x5C
+#define PINMUX16        0x60
+#define PINMUX17        0x64
+#define PINMUX18        0x68
+#define PINMUX19        0x6C
+#define GPO_REG         R30
+#define GPI_REG         R31
+
+//-----------------------------------
+// Macro Name: M_MOV32
+// Description: moves a 32 bit value into register
+// Input Parameters: source register 32 bit
+// Output Parameters: destination register 32 bit 
+//-----------------------------------
+.macro  M_MOV32
+.mparam arg1, arg2
+        mov     arg1.w0, arg2 & 0xFFFF
+        mov     arg1.w2, arg2 >> 16
+.endm
+
+
+#endif

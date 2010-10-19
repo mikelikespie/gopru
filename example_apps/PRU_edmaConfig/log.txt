@@ -1,0 +1,15 @@
+INFO: Starting PRU_edmaConfig example.
+        INFO: Initializing example.
+        INFO: Executing PSC configuration code .
+File ./PRU_pscConfig.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+        INFO: Executing interrupt handler.
+File ./PRU_edmaInterrupt.bin open passed
+                INFO: Executing example.
+File ./PRU_edmaConfig.bin open passed
+                INFO: Waiting for HALT command.
+                INFO: PRU0 completed transfer.
+        INFO: Waiting for HALT command.
+        INFO: PRU1 completed transfer.
+Example executed succesfully.

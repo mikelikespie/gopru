@@ -1,0 +1,49 @@
+Starting PRU PRU_semaphore example.
+        INFO: Initializing example.
+        INFO: Current Transfer size = 4 bytes.
+PRU has permission
+        INFO: Loading and executing transfer in PRU.
+File ./PRU_semaphore.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+        INFO: Current Transfer size = 14 bytes.
+ARM has permission
+        INFO: ARM completed transfer.
+        INFO: Current Transfer size = 18 bytes.
+PRU has permission
+        INFO: Loading and executing transfer in PRU.
+File ./PRU_semaphore.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+        INFO: Current Transfer size = 28 bytes.
+ARM has permission
+        INFO: ARM completed transfer.
+        INFO: Current Transfer size = 32 bytes.
+PRU has permission
+        INFO: Loading and executing transfer in PRU.
+File ./PRU_semaphore.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+        INFO: Current Transfer size = 42 bytes.
+ARM has permission
+        INFO: ARM completed transfer.
+        INFO: Current Transfer size = 46 bytes.
+PRU has permission
+        INFO: Loading and executing transfer in PRU.
+File ./PRU_semaphore.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+        INFO: Current Transfer size = 56 bytes.
+ARM has permission
+        INFO: ARM completed transfer.
+        INFO: Current Transfer size = 60 bytes.
+PRU has permission
+        INFO: Loading and executing transfer in PRU.
+File ./PRU_semaphore.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+        INFO: Current Transfer size = 70 bytes.
+Done Flag = True.
+ARM has permission
+        INFO: ARM completed transfer.
+Example executed succesfully.

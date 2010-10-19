@@ -1,0 +1,7 @@
+INFO: Starting PRU_ARM_memAccessL3andDDR example.
+        INFO: Initializing example.
+        INFO: Executing example.
+File ./PRU_memAccessL3andDDR.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+Example executed succesfully.

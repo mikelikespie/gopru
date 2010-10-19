@@ -1,0 +1,7 @@
+INFO: Starting PRU_mem1DTransfer example.
+        INFO: Initializing example.
+        INFO: Executing example.
+File ./PRU_mem1DTransfer.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+Example executed succesfully.

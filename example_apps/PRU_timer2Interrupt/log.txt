@@ -1,0 +1,7 @@
+INFO: Starting PRU_timer2Interrupt example.
+        INFO: Initializing example.
+        INFO: Executing example.
+File ./PRU_timer2Interrupt.bin open passed
+        Waiting for HALT command.
+        PRU completed transfer.
+Example executed succesfully.

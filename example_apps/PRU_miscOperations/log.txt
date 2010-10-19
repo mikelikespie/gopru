@@ -1,0 +1,10 @@
+INFO: Starting PRU_miscOperations example.
+        INFO: Initializing example.
+        INFO: Executing example.
+File ./PRU_miscOperations.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+Masking and bit_shift operations were executed succesfully
+Bubble sort was executed succesfully
+Thresholding functionality was executed succesfully
+Example executed succesfully.

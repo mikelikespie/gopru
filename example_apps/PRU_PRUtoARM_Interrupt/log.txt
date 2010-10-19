@@ -1,0 +1,7 @@
+INFO: Starting PRU_PRUtoARM_Interrupt example.
+        INFO: Initializing example.
+        INFO: Executing example.
+File ./PRU_PRUtoARM_Interrupt.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+Example executed succesfully.

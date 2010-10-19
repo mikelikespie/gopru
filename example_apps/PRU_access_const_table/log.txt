@@ -1,0 +1,11 @@
+INFO: Starting PRU_access_const_table example.
+        INFO: Initializing example.
+        INFO: Executing PSC configuration code .
+File ./PRU_pscConfig.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+        INFO: Executing example.
+File ./PRU_access_const_table.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+Example executed succesfully.

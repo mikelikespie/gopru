@@ -1,0 +1,19 @@
+INFO: Starting PRU_memCopy example.
+INFO: Initializing aligned example.
+        INFO: Executing example.
+File ./PRU_memCopy.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+Example executed succesfully.
+INFO: Initializing same offset example.
+        INFO: Executing example.
+File ./PRU_memCopy.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+Example executed succesfully.
+INFO: Initializing different offset example.
+        INFO: Executing example.
+File ./PRU_memCopy.bin open passed
+        INFO: Waiting for HALT command.
+        INFO: PRU completed transfer.
+Example executed succesfully.
