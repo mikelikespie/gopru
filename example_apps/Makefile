@@ -1,7 +1,26 @@
 -include DIRS
 
+LIBDIR_APP_LOADER?=../../app_loader/lib
+LIBDIR_EDMA_DRIVER?=../../peripheral_lib/eDMA_driver/lib/
+INCDIR_APP_LOADER?=../../app_loader/include
+INCDIR_EDMA_DRIVER?=../../peripheral_lib/eDMA_driver/include
+BINDIR_APPLICATIONS?=../../app_loader/bin
+BINDIR_FW?=../app_loader/bin
+UTILS_DIR?=../utils
+
 all:
-	for dir in $(DIRS); do make -C $$dir; done
+# Make PRU example applications
+	for dir in $(APP_DIRS); do make -C $$dir LIBDIR_APP_LOADER="${LIBDIR_APP_LOADER}" LIBDIR_EDMA_DRIVER="${LIBDIR_EDMA_DRIVER}" INCDIR_APP_LOADER="${INCDIR_APP_LOADER}" INCDIR_EDMA_DRIVER="${INCDIR_EDMA_DRIVER}" BINDIR="${BINDIR_APPLICATIONS}"; done
+
+# Pass PRU assembly code for each example through assembler
+	for a_file in ${ASSEM_FILES} ; \
+	do \
+          ${UTILS_DIR}/pasm -b $$a_file ; \
+	done ; \
+	mv *.bin ${BINDIR_FW}
 
 clean:
-	for dir in $(DIRS); do make -C $$dir clean; done
+	for dir in $(APP_DIRS); do make -C $$dir clean LIBDIR_APP_LOADER="${LIBDIR_APP_LOADER}" LIBDIR_EDMA_DRIVER="${LIBDIR_EDMA_DRIVER}" INCDIR_APP_LOADER="${INCDIR_APP_LOADER}" INCDIR_EDMA_DRIVER="${INCDIR_EDMA_DRIVER}" BINDIR="${BINDIR_APPLICATIONS}"; done
+
+	for bin_file in ${BIN_FILES}; do rm -fr ${BINDIR_FW}/$$bin_file; done
+
