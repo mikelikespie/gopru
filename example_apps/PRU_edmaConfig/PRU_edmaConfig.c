@@ -197,7 +197,7 @@ static int LOCAL_exampleInit()
     prussdrv_pru_clear_event (PRU0_ARM_INTERRUPT);
 
     prussdrv_map_l3mem (&l3mem);
-    l3mem_char = (unsigned char*) l3mem;
+    l3mem_char = (char*) l3mem;
 
     /* Put src and dst addr into PRU data mem for PRU code to read */
     pru0DataMem_int[0] = 0x80000000; //source addr:  0x80000000

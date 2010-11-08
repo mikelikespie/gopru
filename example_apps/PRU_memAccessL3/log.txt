@@ -1,7 +1,0 @@
-INFO: Starting PRU_memAccessL3 example.
-        INFO: Initializing example.
-        INFO: Executing example.
-File ./PRU_memAccessL3.bin open passed
-        INFO: Waiting for HALT command.
-        INFO: PRU completed transfer.
-INFO: Example executed succesfully.
