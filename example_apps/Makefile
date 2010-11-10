@@ -4,12 +4,14 @@ LIBDIR_APP_LOADER?=../../app_loader/lib
 LIBDIR_EDMA_DRIVER?=../../peripheral_lib/eDMA_driver/lib/
 INCDIR_APP_LOADER?=../../app_loader/include
 INCDIR_EDMA_DRIVER?=../../peripheral_lib/eDMA_driver/include
-BINDIR_APPLICATIONS?=../../app_loader/bin
-BINDIR_FW?=../app_loader/bin
+BINDIR_APPLICATIONS?=../bin
+BINDIR_FW?=bin
 UTILS_DIR?=../utils
 
 all:
 # Make PRU example applications
+	mkdir -p bin
+
 	for dir in $(APP_DIRS); do make -C $$dir LIBDIR_APP_LOADER="${LIBDIR_APP_LOADER}" LIBDIR_EDMA_DRIVER="${LIBDIR_EDMA_DRIVER}" INCDIR_APP_LOADER="${INCDIR_APP_LOADER}" INCDIR_EDMA_DRIVER="${INCDIR_EDMA_DRIVER}" BINDIR="${BINDIR_APPLICATIONS}"; done
 
 # Pass PRU assembly code for each example through assembler

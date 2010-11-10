@@ -2,7 +2,7 @@ CC=arm-none-linux-gnueabi-gcc
 
 LIBDIR_APP_LOADER?=../../app_loader/lib
 INCDIR_APP_LOADER?=../../app_loader/include
-BINDIR?=../../app_loader/bin
+BINDIR?=../bin
 
 CFLAGS+= -Wall -I$(INCDIR_APP_LOADER) -D__DEBUG -O2 -mtune=arm926ej-s -march=armv5te
 LDFLAGS+=-L$(LIBDIR_APP_LOADER) -lprussdrv -lpthread
