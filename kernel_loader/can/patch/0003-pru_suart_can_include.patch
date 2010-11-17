@@ -1,0 +1,1257 @@
+From: Melissa Watkins <m-watkins@ti.com>
+Date: Fri, 12 Nov 2010 09:59:14 -0600
+Subject: [PATCH 3/3] pru_uart_can_include
+
+Patches include files of the 2.6.33-rc4 kernel to support 
+UART and CAN emulation by the PRU.
+
+---
+
+diff -aruN a/include/asm-generic/int-ll64.h b/include/asm-generic/int-ll64.h
+--- a/include/asm-generic/int-ll64.h	2010-07-07 12:17:28.673909000 +0530
++++ b/include/asm-generic/int-ll64.h	2010-08-12 17:42:57.503471000 +0530
+@@ -8,7 +8,7 @@
+ #ifndef _ASM_GENERIC_INT_LL64_H
+ #define _ASM_GENERIC_INT_LL64_H
+ 
+-#include <asm/bitsperlong.h>
++#include <asm-generic/bitsperlong.h>
+ 
+ #ifndef __ASSEMBLY__
+ /*
+diff -aruN a/include/linux/can/gw.h b/include/linux/can/gw.h
+--- a/include/linux/can/gw.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/linux/can/gw.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1 @@
++#include <socketcan/can/gw.h>
+diff -aruN a/include/linux/can/isotp.h b/include/linux/can/isotp.h
+--- a/include/linux/can/isotp.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/linux/can/isotp.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1 @@
++#include <socketcan/can/isotp.h>
+diff -aruN a/include/linux/can/platform/ti_omapl_pru_can.h b/include/linux/can/platform/ti_omapl_pru_can.h
+--- a/include/linux/can/platform/ti_omapl_pru_can.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/linux/can/platform/ti_omapl_pru_can.h	2010-07-07 16:12:14.058603000 +0530
+@@ -0,0 +1,30 @@
++/*
++ * TI OMAPL PRU CAN Emulation device driver
++ * 
++ * This driver supports TI's PRU CAN Emulation and the
++ * specs for the same is available at <http://www.ti.com>
++ * 
++ * Copyright (C) 2009 Texas Instruments Incorporated - http://www.ti.com/
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation version 2.
++ *
++ * This program is distributed as is WITHOUT ANY WARRANTY of any
++ * kind, whether express or implied; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++
++/**
++ * struct hecc_platform_data - HECC Platform Data
++ * 
++ * @version:            version for future use
++ *
++ * Platform data structure to get all platform specific settings.
++ */
++
++struct ti_pru_can_platform_data {
++        u32 version;
++};
+diff -aruN a/include/linux/serial_core.h b/include/linux/serial_core.h
+--- a/include/linux/serial_core.h	2010-07-07 12:17:28.673909000 +0530
++++ b/include/linux/serial_core.h	2010-07-07 16:12:14.058603000 +0530
+@@ -182,6 +182,9 @@
+ /* Aeroflex Gaisler GRLIB APBUART */
+ #define PORT_APBUART    90
+ 
++/* omapl pru uart emulation */
++#define OMAPL_PRU_SUART	91
++
+ #ifdef __KERNEL__
+ 
+ #include <linux/compiler.h>
+diff -aruN a/include/linux/ti_omapl_pru_suart.h b/include/linux/ti_omapl_pru_suart.h
+--- a/include/linux/ti_omapl_pru_suart.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/linux/ti_omapl_pru_suart.h	2010-07-07 16:12:14.058603000 +0530
+@@ -0,0 +1,39 @@
++/*
++ *  linux/include/linux/ti_omapl_pru_suart.h
++ */
++#ifndef _LINUX_SUART_OMAPL_PRU_H
++#define _LINUX_SUART_OMAPL_PRU_H
++
++#include <linux/serial_core.h>
++#include <linux/platform_device.h>
++
++/*
++ * TI OMAPL PRU SUART Emulation device driver
++ *
++ * This driver supports TI's PRU SUART Emulation and the
++ * specs for the same is available at <http://www.ti.com>
++ * 
++ * Copyright (C) 2009 Texas Instruments Incorporated - http://www.ti.com/
++ * 
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation version 2.
++ * 
++ * This program is distributed as is WITHOUT ANY WARRANTY of any
++ * kind, whether express or implied; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++/*
++ * struct ti_pru_suart_platform_data - SUART Platform Data
++ *
++ * @version:            version for future use
++ *
++ * Platform data structure to get all platform specific settings.
++ */
++
++struct ti_pru_suart_platform_data {
++	u32 version;
++};
++#endif
+diff -aruN a/include/socketcan/can/bcm.h b/include/socketcan/can/bcm.h
+--- a/include/socketcan/can/bcm.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/bcm.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,67 @@
++/*
++ * socketcan/can/bcm.h
++ *
++ * Definitions for CAN Broadcast Manager (BCM)
++ *
++ * $Id: bcm.h 1038 2009-08-21 10:00:21Z hartkopp $
++ *
++ * Author: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_BCM_H
++#define CAN_BCM_H
++
++/**
++ * struct bcm_msg_head - head of messages to/from the broadcast manager
++ * @opcode:    opcode, see enum below.
++ * @flags:     special flags, see below.
++ * @count:     number of frames to send before changing interval.
++ * @ival1:     interval for the first @count frames.
++ * @ival2:     interval for the following frames.
++ * @can_id:    CAN ID of frames to be sent or received.
++ * @nframes:   number of frames appended to the message head.
++ * @frames:    array of CAN frames.
++ */
++struct bcm_msg_head {
++	__u32 opcode;
++	__u32 flags;
++	__u32 count;
++	struct timeval ival1, ival2;
++	canid_t can_id;
++	__u32 nframes;
++	struct can_frame frames[0];
++};
++
++enum {
++	TX_SETUP = 1,	/* create (cyclic) transmission task */
++	TX_DELETE,	/* remove (cyclic) transmission task */
++	TX_READ,	/* read properties of (cyclic) transmission task */
++	TX_SEND,	/* send one CAN frame */
++	RX_SETUP,	/* create RX content filter subscription */
++	RX_DELETE,	/* remove RX content filter subscription */
++	RX_READ,	/* read properties of RX content filter subscription */
++	TX_STATUS,	/* reply to TX_READ request */
++	TX_EXPIRED,	/* notification on performed transmissions (count=0) */
++	RX_STATUS,	/* reply to RX_READ request */
++	RX_TIMEOUT,	/* cyclic message is absent */
++	RX_CHANGED	/* updated CAN frame (detected content change) */
++};
++
++#define SETTIMER            0x0001
++#define STARTTIMER          0x0002
++#define TX_COUNTEVT         0x0004
++#define TX_ANNOUNCE         0x0008
++#define TX_CP_CAN_ID        0x0010
++#define RX_FILTER_ID        0x0020
++#define RX_CHECK_DLC        0x0040
++#define RX_NO_AUTOTIMER     0x0080
++#define RX_ANNOUNCE_RESUME  0x0100
++#define TX_RESET_MULTI_IDX  0x0200
++#define RX_RTR_FRAME        0x0400
++
++#endif /* CAN_BCM_H */
+diff -aruN a/include/socketcan/can/core.h b/include/socketcan/can/core.h
+--- a/include/socketcan/can/core.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/core.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,72 @@
++/*
++ * socketcan/can/core.h
++ *
++ * Protoypes and definitions for CAN protocol modules using the PF_CAN core
++ *
++ * $Id: core.h 1038 2009-08-21 10:00:21Z hartkopp $
++ *
++ * Authors: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
++ *          Urs Thuermann   <urs.thuermann@volkswagen.de>
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_CORE_H
++#define CAN_CORE_H
++
++#include <socketcan/can.h>
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++
++#define CAN_VERSION "20090105"
++
++/* increment this number each time you change some user-space interface */
++#define CAN_ABI_VERSION "8"
++
++#define CAN_VERSION_STRING "rev " CAN_VERSION " abi " CAN_ABI_VERSION
++
++#define DNAME(dev) ((dev) ? (dev)->name : "any")
++
++/**
++ * struct can_proto - CAN protocol structure
++ * @type:       type argument in socket() syscall, e.g. SOCK_DGRAM.
++ * @protocol:   protocol number in socket() syscall.
++ * @capability: capability needed to open the socket, or -1 for no restriction.
++ * @ops:        pointer to struct proto_ops for sock->ops.
++ * @prot:       pointer to struct proto structure.
++ */
++struct can_proto {
++	int              type;
++	int              protocol;
++	int              capability;
++	struct proto_ops *ops;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
++	struct proto     *prot;
++#else
++	struct module    *owner;
++	int              (*init)(struct sock *sk);
++	size_t           obj_size;
++#endif
++};
++
++/* function prototypes for the CAN networklayer core (af_can.c) */
++
++extern int  can_proto_register(struct can_proto *cp);
++extern void can_proto_unregister(struct can_proto *cp);
++
++extern int  can_rx_register(struct net_device *dev, canid_t can_id,
++			    canid_t mask,
++			    void (*func)(struct sk_buff *, void *),
++			    void *data, char *ident);
++
++extern void can_rx_unregister(struct net_device *dev, canid_t can_id,
++			      canid_t mask,
++			      void (*func)(struct sk_buff *, void *),
++			      void *data);
++
++extern int can_send(struct sk_buff *skb, int loop);
++
++#endif /* CAN_CORE_H */
+diff -aruN a/include/socketcan/can/dev.h b/include/socketcan/can/dev.h
+--- a/include/socketcan/can/dev.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/dev.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,122 @@
++/*
++ * socketcan/can/dev.h
++ *
++ * Definitions for the CAN network device driver interface
++ *
++ * $Id: dev.h 1153 2010-03-05 09:11:52Z wolf $
++ *
++ * Copyright (C) 2006 Andrey Volkov <avolkov@varma-el.com>
++ *               Varma Electronics Oy
++ *
++ * Copyright (C) 2008 Wolfgang Grandegger <wg@grandegger.com>
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ */
++
++#ifndef CAN_DEV_H
++#define CAN_DEV_H
++
++#include <linux/version.h>
++#include <socketcan/can/netlink.h>
++#include <socketcan/can/error.h>
++
++/*
++ * CAN mode
++ */
++enum can_mode {
++	CAN_MODE_STOP = 0,
++	CAN_MODE_START,
++	CAN_MODE_SLEEP
++};
++
++/*
++ * CAN common private data
++ */
++struct can_priv {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
++	struct net_device_stats net_stats;
++#endif
++	struct can_device_stats can_stats;
++
++	struct can_bittiming bittiming;
++	struct can_bittiming_const *bittiming_const;
++	struct can_clock clock;
++
++	enum can_state state;
++	u32 ctrlmode;
++	u32 ctrlmode_supported;
++
++	int restart_ms;
++	struct timer_list restart_timer;
++
++	int (*do_set_bittiming)(struct net_device *dev);
++	int (*do_set_mode)(struct net_device *dev, enum can_mode mode);
++	int (*do_get_state)(const struct net_device *dev,
++			    enum can_state *state);
++	int (*do_get_berr_counter)(const struct net_device *dev,
++				   struct can_berr_counter *bec);
++
++	unsigned int echo_skb_max;
++	struct sk_buff **echo_skb;
++};
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
++#define ND2D(_ndev)	(_ndev->class_dev.dev)
++#else
++#define ND2D(_ndev)	(_ndev->dev.parent)
++#endif
++
++/*
++ * get_can_dlc(value) - helper macro to cast a given data length code (dlc)
++ * to __u8 and ensure the dlc value to be max. 8 bytes.
++ *
++ * To be used in the CAN netdriver receive path to ensure conformance with
++ * ISO 11898-1 Chapter 8.4.2.3 (DLC field)
++ */
++#define get_can_dlc(i)	(min_t(__u8, (i), 8))
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
++#define IFF_ECHO IFF_LOOPBACK
++#endif
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
++struct net_device_stats *can_get_stats(struct net_device *dev);
++#endif
++
++/* Drop a given socketbuffer if it does not contain a valid CAN frame. */
++static inline int can_dropped_invalid_skb(struct net_device *dev,
++					  struct sk_buff *skb)
++{
++	const struct can_frame *cf = (struct can_frame *)skb->data;
++
++	if (unlikely(skb->len != sizeof(*cf) || cf->can_dlc > 8)) {
++		kfree_skb(skb);
++		dev->stats.tx_dropped++;
++		return 1;
++	}
++
++	return 0;
++}
++
++struct net_device *alloc_candev(int sizeof_priv, unsigned int echo_skb_max);
++void free_candev(struct net_device *dev);
++
++int open_candev(struct net_device *dev);
++void close_candev(struct net_device *dev);
++
++int register_candev(struct net_device *dev);
++void unregister_candev(struct net_device *dev);
++
++int can_restart_now(struct net_device *dev);
++void can_bus_off(struct net_device *dev);
++
++void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev,
++		      unsigned int idx);
++void can_get_echo_skb(struct net_device *dev, unsigned int idx);
++void can_free_echo_skb(struct net_device *dev, unsigned int idx);
++
++struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf);
++struct sk_buff *alloc_can_err_skb(struct net_device *dev,
++				  struct can_frame **cf);
++
++#endif /* CAN_DEV_H */
+diff -aruN a/include/socketcan/can/error.h b/include/socketcan/can/error.h
+--- a/include/socketcan/can/error.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/error.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,95 @@
++/*
++ * socketcan/can/error.h
++ *
++ * Definitions of the CAN error frame to be filtered and passed to the user.
++ *
++ * $Id: error.h 1038 2009-08-21 10:00:21Z hartkopp $
++ *
++ * Author: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_ERROR_H
++#define CAN_ERROR_H
++
++#define CAN_ERR_DLC 8 /* dlc for error frames */
++
++/* error class (mask) in can_id */
++#define CAN_ERR_TX_TIMEOUT   0x00000001U /* TX timeout (by netdevice driver) */
++#define CAN_ERR_LOSTARB      0x00000002U /* lost arbitration    / data[0]    */
++#define CAN_ERR_CRTL         0x00000004U /* controller problems / data[1]    */
++#define CAN_ERR_PROT         0x00000008U /* protocol violations / data[2..3] */
++#define CAN_ERR_TRX          0x00000010U /* transceiver status  / data[4]    */
++#define CAN_ERR_ACK          0x00000020U /* received no ACK on transmission */
++#define CAN_ERR_BUSOFF       0x00000040U /* bus off */
++#define CAN_ERR_BUSERROR     0x00000080U /* bus error (may flood!) */
++#define CAN_ERR_RESTARTED    0x00000100U /* controller restarted */
++
++/* arbitration lost in bit ... / data[0] */
++#define CAN_ERR_LOSTARB_UNSPEC   0x00 /* unspecified */
++				      /* else bit number in bitstream */
++
++/* error status of CAN-controller / data[1] */
++#define CAN_ERR_CRTL_UNSPEC      0x00 /* unspecified */
++#define CAN_ERR_CRTL_RX_OVERFLOW 0x01 /* RX buffer overflow */
++#define CAN_ERR_CRTL_TX_OVERFLOW 0x02 /* TX buffer overflow */
++#define CAN_ERR_CRTL_RX_WARNING  0x04 /* reached warning level for RX errors */
++#define CAN_ERR_CRTL_TX_WARNING  0x08 /* reached warning level for TX errors */
++#define CAN_ERR_CRTL_RX_PASSIVE  0x10 /* reached error passive status RX */
++#define CAN_ERR_CRTL_TX_PASSIVE  0x20 /* reached error passive status TX */
++				      /* (at least one error counter exceeds */
++				      /* the protocol-defined level of 127)  */
++
++/* error in CAN protocol (type) / data[2] */
++#define CAN_ERR_PROT_UNSPEC      0x00 /* unspecified */
++#define CAN_ERR_PROT_BIT         0x01 /* single bit error */
++#define CAN_ERR_PROT_FORM        0x02 /* frame format error */
++#define CAN_ERR_PROT_STUFF       0x04 /* bit stuffing error */
++#define CAN_ERR_PROT_BIT0        0x08 /* unable to send dominant bit */
++#define CAN_ERR_PROT_BIT1        0x10 /* unable to send recessive bit */
++#define CAN_ERR_PROT_OVERLOAD    0x20 /* bus overload */
++#define CAN_ERR_PROT_ACTIVE      0x40 /* active error announcement */
++#define CAN_ERR_PROT_TX          0x80 /* error occured on transmission */
++
++/* error in CAN protocol (location) / data[3] */
++#define CAN_ERR_PROT_LOC_UNSPEC  0x00 /* unspecified */
++#define CAN_ERR_PROT_LOC_SOF     0x03 /* start of frame */
++#define CAN_ERR_PROT_LOC_ID28_21 0x02 /* ID bits 28 - 21 (SFF: 10 - 3) */
++#define CAN_ERR_PROT_LOC_ID20_18 0x06 /* ID bits 20 - 18 (SFF: 2 - 0 )*/
++#define CAN_ERR_PROT_LOC_SRTR    0x04 /* substitute RTR (SFF: RTR) */
++#define CAN_ERR_PROT_LOC_IDE     0x05 /* identifier extension */
++#define CAN_ERR_PROT_LOC_ID17_13 0x07 /* ID bits 17-13 */
++#define CAN_ERR_PROT_LOC_ID12_05 0x0F /* ID bits 12-5 */
++#define CAN_ERR_PROT_LOC_ID04_00 0x0E /* ID bits 4-0 */
++#define CAN_ERR_PROT_LOC_RTR     0x0C /* RTR */
++#define CAN_ERR_PROT_LOC_RES1    0x0D /* reserved bit 1 */
++#define CAN_ERR_PROT_LOC_RES0    0x09 /* reserved bit 0 */
++#define CAN_ERR_PROT_LOC_DLC     0x0B /* data length code */
++#define CAN_ERR_PROT_LOC_DATA    0x0A /* data section */
++#define CAN_ERR_PROT_LOC_CRC_SEQ 0x08 /* CRC sequence */
++#define CAN_ERR_PROT_LOC_CRC_DEL 0x18 /* CRC delimiter */
++#define CAN_ERR_PROT_LOC_ACK     0x19 /* ACK slot */
++#define CAN_ERR_PROT_LOC_ACK_DEL 0x1B /* ACK delimiter */
++#define CAN_ERR_PROT_LOC_EOF     0x1A /* end of frame */
++#define CAN_ERR_PROT_LOC_INTERM  0x12 /* intermission */
++
++/* error status of CAN-transceiver / data[4] */
++/*                                             CANH CANL */
++#define CAN_ERR_TRX_UNSPEC             0x00 /* 0000 0000 */
++#define CAN_ERR_TRX_CANH_NO_WIRE       0x04 /* 0000 0100 */
++#define CAN_ERR_TRX_CANH_SHORT_TO_BAT  0x05 /* 0000 0101 */
++#define CAN_ERR_TRX_CANH_SHORT_TO_VCC  0x06 /* 0000 0110 */
++#define CAN_ERR_TRX_CANH_SHORT_TO_GND  0x07 /* 0000 0111 */
++#define CAN_ERR_TRX_CANL_NO_WIRE       0x40 /* 0100 0000 */
++#define CAN_ERR_TRX_CANL_SHORT_TO_BAT  0x50 /* 0101 0000 */
++#define CAN_ERR_TRX_CANL_SHORT_TO_VCC  0x60 /* 0110 0000 */
++#define CAN_ERR_TRX_CANL_SHORT_TO_GND  0x70 /* 0111 0000 */
++#define CAN_ERR_TRX_CANL_SHORT_TO_CANH 0x80 /* 1000 0000 */
++
++/* controller specific additional information / data[5..7] */
++
++#endif /* CAN_ERROR_H */
+diff -aruN a/include/socketcan/can/gw.h b/include/socketcan/can/gw.h
+--- a/include/socketcan/can/gw.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/gw.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,165 @@
++/*
++ * socketcan/can/gw.h
++ *
++ * Definitions for CAN frame Gateway/Router/Bridge 
++ *
++ * $Id: gw.h 1167 2010-04-16 08:46:17Z hartkopp $
++ *
++ * Author: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
++ * Copyright (c) 2002-2010 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_GW_H
++#define CAN_GW_H
++
++#include <socketcan/can.h>
++
++struct rtcanmsg {
++	__u8  can_family;
++	__u8  gwtype;
++	__u16 flags;
++};
++
++/* CAN gateway types */
++enum {
++	CGW_TYPE_UNSPEC,
++	CGW_TYPE_CAN_CAN,	/* CAN->CAN routing */
++	__CGW_TYPE_MAX
++};
++
++#define CGW_TYPE_MAX (__CGW_TYPE_MAX - 1)
++
++/* CAN rtnetlink attribute definitions */
++enum {
++	CGW_UNSPEC,
++	CGW_MOD_AND,	/* CAN frame modification binary AND */
++	CGW_MOD_OR,	/* CAN frame modification binary OR */
++	CGW_MOD_XOR,	/* CAN frame modification binary XOR */
++	CGW_MOD_SET,	/* CAN frame modification set alternate values */
++	CGW_CS_XOR,	/* set data[] XOR checksum into data[index] */
++	CGW_CS_CRC8,	/* set data[] CRC8 checksum into data[index] */
++	CGW_HANDLED,	/* number of handled CAN frames */
++	CGW_DROPPED,	/* number of dropped CAN frames */
++	CGW_SRC_IF,	/* ifindex of source network interface */
++	CGW_DST_IF,	/* ifindex of destination network interface */
++	CGW_FILTER,	/* specify struct can_filter on source CAN device */
++	__CGW_MAX
++};
++
++#define CGW_MAX (__CGW_MAX - 1)
++
++#define CGW_FLAGS_CAN_ECHO 0x01
++#define CGW_FLAGS_CAN_SRC_TSTAMP 0x02
++
++#define CGW_MOD_FUNCS 4 /* AND OR XOR SET */
++
++/* CAN frame elements that are affected by curr. 3 CAN frame modifications */
++#define CGW_MOD_ID	0x01
++#define CGW_MOD_DLC	0x02
++#define CGW_MOD_DATA	0x04
++
++#define CGW_FRAME_MODS 3 /* ID DLC DATA */
++
++#define MAX_MODFUNCTIONS (CGW_MOD_FUNCS * CGW_FRAME_MODS)
++
++struct cgw_frame_mod {
++	struct can_frame cf;
++	__u8 modtype;
++} __attribute__((packed));
++
++#define CGW_MODATTR_LEN sizeof(struct cgw_frame_mod)
++
++struct cgw_csum_xor {
++	__s8 from_idx;
++	__s8 to_idx;
++	__s8 result_idx;
++	__u8 init_xor_val;
++} __attribute__ ((packed));
++
++struct cgw_csum_crc8 {
++	__s8 from_idx;
++	__s8 to_idx;
++	__s8 result_idx;
++	__u8 init_crc_val;
++	__u8 final_xor_val;
++	__u8 crctab[256];
++	__u8 profile;
++	__u8 profile_data[20];
++} __attribute__ ((packed));
++
++/* length of checksum operation parameters. idx = index in CAN frame data[] */
++#define CGW_CS_XOR_LEN  sizeof(struct cgw_csum_xor)
++#define CGW_CS_CRC8_LEN  sizeof(struct cgw_csum_crc8)
++
++/* CRC8 profiles (compute CRC for additional data elements - see below) */
++enum {
++	CGW_CRC8PRF_UNSPEC,
++	CGW_CRC8PRF_1U8,	/* compute one additional u8 value */
++	CGW_CRC8PRF_16U8,	/* u8 value table indexed by data[1] & 0xF */
++	CGW_CRC8PRF_SFFID_XOR,	/* (can_id & 0xFF) ^ (can_id >> 8 & 0xFF) */
++	__CGW_CRC8PRF_MAX
++};
++
++#define CGW_CRC8PRF_MAX (__CGW_CRC8PRF_MAX - 1)
++
++/*
++ * CAN rtnetlink attribute contents in detail
++ *
++ * CGW_XXX_IF (length 4 bytes):
++ * Sets an interface index for source/destination network interfaces.
++ * For the CAN->CAN gwtype the indices of _two_ CAN interfaces are mandatory.
++ *
++ * CGW_FILTER (length 8 bytes):
++ * Sets a CAN receive filter for the gateway job specified by the
++ * struct can_filter described in include/linux/can.h
++ *
++ * CGW_MOD_XXX (length 17 bytes):
++ * Specifies a modification that's done to a received CAN frame before it is
++ * send out to the destination interface.
++ *
++ * <struct can_frame> data used as operator
++ * <u8> affected CAN frame elements
++ *
++ * CGW_CS_XOR (length 4 bytes):
++ * Set a simple XOR checksum starting with an initial value into
++ * data[result-idx] using data[start-idx] .. data[end-idx]
++ *
++ * The XOR checksum is calculated like this:
++ *
++ * xor = init_xor_val
++ * 
++ * for (i = from_idx .. to_idx)
++ *      xor ^= can_frame.data[i]
++ *
++ * can_frame.data[ result_idx ] = xor
++ *
++ * CGW_CS_CRC8 (length 282 bytes):
++ * Set a CRC8 value into data[result-idx] using a given 256 byte CRC8 table,
++ * a given initial value and a defined input data[start-idx] .. data[end-idx].
++ * Finally the result value is XOR'ed with the final_xor_val.
++ *
++ * The CRC8 checksum is calculated like this:
++ *
++ * crc = init_crc_val
++ * 
++ * for (i = from_idx .. to_idx)
++ *      crc = crctab[ crc ^ can_frame.data[i] ]
++ *
++ * can_frame.data[ result_idx ] = crc ^ final_xor_val
++ *
++ * The calculated CRC may contain additional source data elements that can be
++ * defined in the handling of 'checksum profiles' e.g. shown in AUTOSAR specs
++ * like http://www.autosar.org/download/R4.0/AUTOSAR_SWS_E2ELibrary.pdf
++ * E.g. the profile_data[] may contain additional u8 values (called DATA_IDs)
++ * that are used depending on counter values inside the CAN frame data[].
++ * So far only three profiles have been implemented for illustration.
++ *
++ * Remark: In general the attribute data is a linear buffer.
++ *         Beware of sending unpacked or aligned structs!
++ */
++
++#endif
+diff -aruN a/include/socketcan/can/ioctl.h b/include/socketcan/can/ioctl.h
+--- a/include/socketcan/can/ioctl.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/ioctl.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,99 @@
++
++/*
++ * socketcan/can/ioctl.h
++ *
++ * Definitions for CAN controller setup (work in progress)
++ *
++ * $Id: ioctl.h 1038 2009-08-21 10:00:21Z hartkopp $
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_IOCTL_H
++#define CAN_IOCTL_H
++
++#include <linux/sockios.h>
++
++/*
++ * CAN bitrate
++ */
++#define CAN_BITRATE_UNCONFIGURED	((__u32) 0xFFFFFFFFU)
++#define CAN_BITRATE_UNKNOWN		0
++#define CAN_BITRATE_DEFAULT		500000
++
++/*
++ * CAN custom bit time
++ */
++enum can_bittimes {
++	CAN_BITTIME_STD,
++	CAN_BITTIME_BTR
++};
++
++/* TSEG1 of controllers usually is a sum of synch_seg (always 1),
++ * prop_seg and phase_seg1, TSEG2 = phase_seg2 */
++
++struct can_bittime_std {
++	__u32 brp;        /* baud rate prescaler */
++	__u8  prop_seg;   /* from 1 to 8 */
++	__u8  phase_seg1; /* from 1 to 8 */
++	__u8  phase_seg2; /* from 1 to 8 */
++	__u8  sjw:7;      /* from 1 to 4 */
++	__u8  sam:1;      /* 1 - enable triple sampling */
++};
++
++struct can_bittime_btr {
++	__u8  btr0;
++	__u8  btr1;
++};
++
++struct can_bittime {
++	enum can_bittimes type;
++	union {
++		struct can_bittime_std std;
++		struct can_bittime_btr btr;
++	};
++};
++
++/*
++ * CAN mode
++ */
++enum can_mode {
++	CAN_MODE_STOP = 0,
++	CAN_MODE_START,
++	CAN_MODE_SLEEP
++};
++
++/*
++ * CAN controller mode
++ */
++#define CAN_CTRLMODE_LOOPBACK   0x1
++#define CAN_CTRLMODE_LISTENONLY 0x2
++
++/*
++ * CAN operational and error states
++ */
++enum can_state {
++	CAN_STATE_ACTIVE = 0,
++	CAN_STATE_BUS_WARNING,
++	CAN_STATE_BUS_PASSIVE,
++	CAN_STATE_BUS_OFF,
++	CAN_STATE_STOPPED,
++	CAN_STATE_SLEEPING
++};
++
++/*
++ * CAN device statistics
++ */
++struct can_device_stats {
++	int error_warning;
++	int data_overrun;
++	int wakeup;
++	int bus_error;
++	int error_passive;
++	int arbitration_lost;
++	int restarts;
++	int bus_error_at_init;
++};
++
++#endif /* CAN_IOCTL_H */
+diff -aruN a/include/socketcan/can/isotp.h b/include/socketcan/can/isotp.h
+--- a/include/socketcan/can/isotp.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/isotp.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,97 @@
++/*
++ * socketcan/can/isotp.h
++ *
++ * Definitions for isotp CAN sockets
++ *
++ * $Id: isotp.h 1038 2009-08-21 10:00:21Z hartkopp $
++ *
++ * Author: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
++ * Copyright (c) 2008 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_ISOTP_H
++#define CAN_ISOTP_H
++
++#include <socketcan/can.h>
++
++#define SOL_CAN_ISOTP (SOL_CAN_BASE + CAN_ISOTP)
++
++/* for socket options affecting the socket (not the global system) */
++
++#define CAN_ISOTP_OPTS		1
++#define CAN_ISOTP_RECV_FC	2
++
++struct can_isotp_options {
++
++	__u32 flags;		/* set flags for isotp behaviour.	*/
++				/* __u32 value : flags see below	*/
++
++	__u32 frame_txtime;	/* frame transmission time (N_As/N_Ar)	*/
++				/* __u32 value : time in nano secs	*/
++
++	__u8  ext_address;	/* set address for extended addressing	*/
++				/* __u8 value : extended address	*/
++
++	__u8  txpad_content;	/* set content of padding byte (tx)	*/
++				/* __u8 value : content	on tx path	*/
++
++	__u8  rxpad_content;	/* set content of padding byte (rx)	*/
++				/* __u8 value : content	on rx path	*/
++};
++
++struct can_isotp_fc_options {
++
++	__u8  bs;		/* blocksize provided in FC frame	*/
++				/* __u8 value : blocksize. 0 = off	*/
++
++	__u8  stmin;		/* separation time provided in FC frame	*/
++				/* __u8 value :				*/
++				/* 0x00 - 0x7F : 0 - 127 ms		*/
++				/* 0x80 - 0xF0 : reserved		*/
++				/* 0xF1 - 0xF9 : 100 us - 900 us	*/
++				/* 0xFA - 0xFF : reserved		*/
++
++	__u8  wftmax;		/* max. number of wait frame transmiss.	*/
++				/* __u8 value : 0 = omit FC N_PDU WT	*/
++};
++
++
++/* flags for isotp behaviour */
++
++#define CAN_ISOTP_LISTEN_MODE	0x01	/* listen only (do not send FC) */
++#define CAN_ISOTP_EXTEND_ADDR	0x02	/* enable extended addressing */
++#define CAN_ISOTP_TX_PADDING	0x04	/* enable CAN frame padding tx path */
++#define CAN_ISOTP_RX_PADDING	0x08	/* enable CAN frame padding rx path */
++#define CAN_ISOTP_CHK_PAD_LEN	0x10	/* check received CAN frame padding */
++#define CAN_ISOTP_CHK_PAD_DATA	0x20	/* check received CAN frame padding */
++#define CAN_ISOTP_HALF_DUPLEX	0x40	/* half duplex error state handling */
++
++
++/* default values */
++
++#define CAN_ISOTP_DEFAULT_FLAGS		0
++#define CAN_ISOTP_DEFAULT_EXT_ADDRESS	0x00
++#define CAN_ISOTP_DEFAULT_RXPAD_CONTENT	0x00
++#define CAN_ISOTP_DEFAULT_TXPAD_CONTENT	0x00
++#define CAN_ISOTP_DEFAULT_FRAME_TXTIME	0
++#define CAN_ISOTP_DEFAULT_RECV_BS	0
++#define CAN_ISOTP_DEFAULT_RECV_STMIN	0x00
++#define CAN_ISOTP_DEFAULT_RECV_WFTMAX	0
++
++/*
++ * Remark on CAN_ISOTP_DEFAULT_RECV_* values:
++ *
++ * We can strongly assume, that the Linux Kernel implementation of
++ * CAN_ISOTP is capable to run with BS=0, STmin=0 and WFTmax=0.
++ * But as we like to be able to behave as a commonly available ECU,
++ * these default settings can be changed via sockopts.
++ * For that reason the STmin value is intentionally _not_ checked for
++ * consistency and copied directly into the flow control (FC) frame.
++ *
++ */
++
++#endif
+diff -aruN a/include/socketcan/can/netlink.h b/include/socketcan/can/netlink.h
+--- a/include/socketcan/can/netlink.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/netlink.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,126 @@
++/*
++ * socketcan/can/netlink.h
++ *
++ * Definitions for the CAN netlink interface
++ *
++ * $Id: dev.h 939 2009-02-14 14:30:19Z wolf $
++ *
++ * Copyright (c) 2009 Wolfgang Grandegger <wg@grandegger.com>
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_NETLINK_H
++#define CAN_NETLINK_H
++
++#include <linux/types.h>
++
++/*
++ * CAN bit-timing parameters
++ *
++ * For futher information, please read chapter "8 BIT TIMING
++ * REQUIREMENTS" of the "Bosch CAN Specification version 2.0"
++ * at http://www.semiconductors.bosch.de/pdf/can2spec.pdf.
++ */
++struct can_bittiming {
++	__u32 bitrate;		/* Bit-rate in bits/second */
++	__u32 sample_point;	/* Sample point in one-tenth of a percent */
++	__u32 tq;		/* Time quanta (TQ) in nanoseconds */
++	__u32 prop_seg;		/* Propagation segment in TQs */
++	__u32 phase_seg1;	/* Phase buffer segment 1 in TQs */
++	__u32 phase_seg2;	/* Phase buffer segment 2 in TQs */
++	__u32 sjw;		/* Synchronisation jump width in TQs */
++	__u32 brp;		/* Bit-rate prescaler */
++};
++
++/*
++ * CAN harware-dependent bit-timing constant
++ *
++ * Used for calculating and checking bit-timing parameters
++ */
++struct can_bittiming_const {
++	char name[16];		/* Name of the CAN controller hardware */
++	__u32 tseg1_min;	/* Time segement 1 = prop_seg + phase_seg1 */
++	__u32 tseg1_max;
++	__u32 tseg2_min;	/* Time segement 2 = phase_seg2 */
++	__u32 tseg2_max;
++	__u32 sjw_max;		/* Synchronisation jump width */
++	__u32 brp_min;		/* Bit-rate prescaler */
++	__u32 brp_max;
++	__u32 brp_inc;
++};
++
++/*
++ * CAN clock parameters
++ */
++struct can_clock {
++	__u32 freq;		/* CAN system clock frequency in Hz */
++};
++
++/*
++ * CAN operational and error states
++ */
++enum can_state {
++	CAN_STATE_ERROR_ACTIVE = 0,	/* RX/TX error count < 96 */
++	CAN_STATE_ERROR_WARNING,	/* RX/TX error count < 128 */
++	CAN_STATE_ERROR_PASSIVE,	/* RX/TX error count < 256 */
++	CAN_STATE_BUS_OFF,		/* RX/TX error count >= 256 */
++	CAN_STATE_STOPPED,		/* Device is stopped */
++	CAN_STATE_SLEEPING,		/* Device is sleeping */
++	CAN_STATE_MAX
++};
++
++/*
++ * CAN bus error counters
++ */
++struct can_berr_counter {
++	__u16 txerr;
++	__u16 rxerr;
++};
++
++/*
++ * CAN controller mode
++ */
++struct can_ctrlmode {
++	__u32 mask;
++	__u32 flags;
++};
++
++#define CAN_CTRLMODE_LOOPBACK		0x01	/* Loopback mode */
++#define CAN_CTRLMODE_LISTENONLY		0x02 	/* Listen-only mode */
++#define CAN_CTRLMODE_3_SAMPLES		0x04	/* Triple sampling mode */
++#define CAN_CTRLMODE_ONE_SHOT		0x08	/* One-Shot mode */
++#define CAN_CTRLMODE_BERR_REPORTING	0x10	/* Bus-error reporting */
++
++/*
++ * CAN device statistics
++ */
++struct can_device_stats {
++	__u32 bus_error;	/* Bus errors */
++	__u32 error_warning;	/* Changes to error warning state */
++	__u32 error_passive;	/* Changes to error passive state */
++	__u32 bus_off;		/* Changes to bus off state */
++	__u32 arbitration_lost; /* Arbitration lost errors */
++	__u32 restarts;		/* CAN controller re-starts */
++};
++
++/*
++ * CAN netlink interface
++ */
++enum {
++	IFLA_CAN_UNSPEC,
++	IFLA_CAN_BITTIMING,
++	IFLA_CAN_BITTIMING_CONST,
++	IFLA_CAN_CLOCK,
++	IFLA_CAN_STATE,
++	IFLA_CAN_CTRLMODE,
++	IFLA_CAN_RESTART_MS,
++	IFLA_CAN_RESTART,
++	IFLA_CAN_BERR_COUNTER,
++	__IFLA_CAN_MAX
++};
++
++#define IFLA_CAN_MAX	(__IFLA_CAN_MAX - 1)
++
++#endif /* CAN_NETLINK_H */
+diff -aruN a/include/socketcan/can/platform/mcp251x.h b/include/socketcan/can/platform/mcp251x.h
+--- a/include/socketcan/can/platform/mcp251x.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/platform/mcp251x.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,36 @@
++#ifndef __CAN_PLATFORM_MCP251X_H__
++#define __CAN_PLATFORM_MCP251X_H__
++
++/*
++ *
++ * CAN bus driver for Microchip 251x CAN Controller with SPI Interface
++ *
++ */
++
++#include <linux/spi/spi.h>
++
++/**
++ * struct mcp251x_platform_data - MCP251X SPI CAN controller platform data
++ * @oscillator_frequency:       - oscillator frequency in Hz
++ * @model:                      - actual type of chip
++ * @board_specific_setup:       - called before probing the chip (power,reset)
++ * @transceiver_enable:         - called to power on/off the transceiver
++ * @power_enable:               - called to power on/off the mcp *and* the
++ *                                transceiver
++ *
++ * Please note that you should define power_enable or transceiver_enable or
++ * none of them. Defining both of them is no use.
++ *
++ */
++
++struct mcp251x_platform_data {
++	unsigned long oscillator_frequency;
++	int model;
++#define CAN_MCP251X_MCP2510 0
++#define CAN_MCP251X_MCP2515 1
++	int (*board_specific_setup)(struct spi_device *spi);
++	int (*transceiver_enable)(int enable);
++	int (*power_enable) (int enable);
++};
++
++#endif /* __CAN_PLATFORM_MCP251X_H__ */
+diff -aruN a/include/socketcan/can/platform/sja1000.h b/include/socketcan/can/platform/sja1000.h
+--- a/include/socketcan/can/platform/sja1000.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/platform/sja1000.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,35 @@
++#ifndef _CAN_PLATFORM_SJA1000_H_
++#define _CAN_PLATFORM_SJA1000_H_
++
++/* clock divider register */
++#define CDR_CLKOUT_MASK 0x07
++#define CDR_CLK_OFF	0x08 /* Clock off (CLKOUT pin) */
++#define CDR_RXINPEN	0x20 /* TX1 output is RX irq output */
++#define CDR_CBP		0x40 /* CAN input comparator bypass */
++#define CDR_PELICAN	0x80 /* PeliCAN mode */
++
++/* output control register */
++#define OCR_MODE_BIPHASE  0x00
++#define OCR_MODE_TEST     0x01
++#define OCR_MODE_NORMAL   0x02
++#define OCR_MODE_CLOCK    0x03
++#define OCR_MODE_MASK     0x07
++#define OCR_TX0_INVERT    0x04
++#define OCR_TX0_PULLDOWN  0x08
++#define OCR_TX0_PULLUP    0x10
++#define OCR_TX0_PUSHPULL  0x18
++#define OCR_TX1_INVERT    0x20
++#define OCR_TX1_PULLDOWN  0x40
++#define OCR_TX1_PULLUP    0x80
++#define OCR_TX1_PUSHPULL  0xc0
++#define OCR_TX_MASK       0xfc
++#define OCR_TX_SHIFT      2
++
++struct sja1000_platform_data {
++	u32 clock;	/* CAN bus oscillator frequency in Hz */
++
++	u8 ocr;		/* output control register */
++	u8 cdr;		/* clock divider register */
++};
++
++#endif	/* !_CAN_PLATFORM_SJA1000_H_ */
+diff -aruN a/include/socketcan/can/raw.h b/include/socketcan/can/raw.h
+--- a/include/socketcan/can/raw.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/raw.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,33 @@
++/*
++ * socketcan/can/raw.h
++ *
++ * Definitions for raw CAN sockets
++ *
++ * $Id: raw.h 1038 2009-08-21 10:00:21Z hartkopp $
++ *
++ * Authors: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
++ *          Urs Thuermann   <urs.thuermann@volkswagen.de>
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_RAW_H
++#define CAN_RAW_H
++
++#include <socketcan/can.h>
++
++#define SOL_CAN_RAW (SOL_CAN_BASE + CAN_RAW)
++
++/* for socket options affecting the socket (not the global system) */
++
++enum {
++	CAN_RAW_FILTER = 1,	/* set 0 .. n can_filter(s)          */
++	CAN_RAW_ERR_FILTER,	/* set filter for error frames       */
++	CAN_RAW_LOOPBACK,	/* local loopback (default:on)       */
++	CAN_RAW_RECV_OWN_MSGS	/* receive my own msgs (default:off) */
++};
++
++#endif
+diff -aruN a/include/socketcan/can/version.h b/include/socketcan/can/version.h
+--- a/include/socketcan/can/version.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can/version.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,22 @@
++/*
++ * socketcan/can/version.h
++ *
++ * Version information for the CAN network layer implementation
++
++ * Author: Urs Thuermann   <urs.thuermann@volkswagen.de>
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_VERSION_H
++#define CAN_VERSION_H
++
++#define RCSID(s) asm(".section .rodata.str1.1,\"aMS\",@progbits,1\n\t" \
++		     ".string \"" s "\"\n\t.previous\n")
++
++RCSID("$Id: version.h 1038 2009-08-21 10:00:21Z hartkopp $");
++
++#endif /* CAN_VERSION_H */
+diff -aruN a/include/socketcan/can.h b/include/socketcan/can.h
+--- a/include/socketcan/can.h	1970-01-01 05:30:00.000000000 +0530
++++ b/include/socketcan/can.h	2010-08-13 10:07:19.102269000 +0530
+@@ -0,0 +1,114 @@
++/*
++ * socketcan/can.h
++ *
++ * Definitions for CAN network layer (socket addr / CAN frame / CAN filter)
++ *
++ * $Id: can.h 1038 2009-08-21 10:00:21Z hartkopp $
++ *
++ * Authors: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
++ *          Urs Thuermann   <urs.thuermann@volkswagen.de>
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef CAN_H
++#define CAN_H
++
++#include <linux/version.h>
++#include <linux/types.h>
++#include <linux/socket.h>
++
++/* controller area network (CAN) kernel definitions */
++
++/* special address description flags for the CAN_ID */
++#define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
++#define CAN_RTR_FLAG 0x40000000U /* remote transmission request */
++#define CAN_ERR_FLAG 0x20000000U /* error frame */
++
++/* valid bits in CAN ID for frame formats */
++#define CAN_SFF_MASK 0x000007FFU /* standard frame format (SFF) */
++#define CAN_EFF_MASK 0x1FFFFFFFU /* extended frame format (EFF) */
++#define CAN_ERR_MASK 0x1FFFFFFFU /* omit EFF, RTR, ERR flags */
++
++/*
++ * Controller Area Network Identifier structure
++ *
++ * bit 0-28	: CAN identifier (11/29 bit)
++ * bit 29	: error frame flag (0 = data frame, 1 = error frame)
++ * bit 30	: remote transmission request flag (1 = rtr frame)
++ * bit 31	: frame format flag (0 = standard 11 bit, 1 = extended 29 bit)
++ */
++typedef __u32 canid_t;
++
++/*
++ * Controller Area Network Error Frame Mask structure
++ *
++ * bit 0-28	: error class mask (see include/socketcan/can/error.h)
++ * bit 29-31	: set to zero
++ */
++typedef __u32 can_err_mask_t;
++
++/**
++ * struct can_frame - basic CAN frame structure
++ * @can_id:  the CAN ID of the frame and CAN_*_FLAG flags, see above.
++ * @can_dlc: the data length field of the CAN frame
++ * @data:    the CAN frame payload.
++ */
++struct can_frame {
++	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
++	__u8    can_dlc; /* data length code: 0 .. 8 */
++	__u8    data[8] __attribute__((aligned(8)));
++};
++
++/* particular protocols of the protocol family PF_CAN */
++#define CAN_RAW		1 /* RAW sockets */
++#define CAN_BCM		2 /* Broadcast Manager */
++#define CAN_TP16	3 /* VAG Transport Protocol v1.6 */
++#define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
++#define CAN_MCNET	5 /* Bosch MCNet */
++#define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
++#define CAN_NPROTO	7
++
++#define SOL_CAN_BASE 100
++
++/**
++ * struct sockaddr_can - the sockaddr structure for CAN sockets
++ * @can_family:  address family number AF_CAN.
++ * @can_ifindex: CAN network interface index.
++ * @can_addr:    protocol specific address information
++ */
++struct sockaddr_can {
++	sa_family_t can_family;
++	int         can_ifindex;
++	union {
++		/* transport protocol class address information (e.g. ISOTP) */
++		struct { canid_t rx_id, tx_id; } tp;
++
++		/* reserved for future CAN protocols address information */
++	} can_addr;
++};
++
++/**
++ * struct can_filter - CAN ID based filter in can_register().
++ * @can_id:   relevant bits of CAN ID which are not masked out.
++ * @can_mask: CAN mask (see description)
++ *
++ * Description:
++ * A filter matches, when
++ *
++ *          <received_can_id> & mask == can_id & mask
++ *
++ * The filter can be inverted (CAN_INV_FILTER bit set in can_id) or it can
++ * filter for error frames (CAN_ERR_FLAG bit set in mask).
++ */
++struct can_filter {
++	canid_t can_id;
++	canid_t can_mask;
++};
++
++#define CAN_INV_FILTER 0x20000000U /* to be set in can_filter.can_id */
++
++#endif /* CAN_H */
+

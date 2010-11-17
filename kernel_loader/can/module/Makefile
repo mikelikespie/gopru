@@ -1,7 +1,7 @@
 ROOTDIR = ../
 -include $(ROOTDIR)/Rules.make
 
-INCDIR ?= <full-path-to can/module/hal/can/include> -I<full-path-to pru_lib/hal/common/include -I<full-path-to can/module/>
+INCDIR ?= <full-path-to pru_sw/trunk/kernel_loader/can/module/hal/can/include> -I<full-path-to pru_sw/trunk/kernel_loader/pru_lib/hal/common/include> -I<full-path-to pru_sw/trunk/kernel_loader/can/module>
 
 EXTRA_CFLAGS += -I${INCDIR}
 

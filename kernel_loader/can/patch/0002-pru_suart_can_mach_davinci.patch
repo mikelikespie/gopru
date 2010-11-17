@@ -1,0 +1,552 @@
+From: Melissa Watkins <m-watkins@ti.com>
+Date: Fri, 12 Nov 2010 09:59:14 -0600
+Subject: [PATCH 2/3] pru_uart_can_mach_davinci
+
+Patches the mach-davinci files of the 2.6.33-rc4 kernel to support 
+UART and CAN emulation by the PRU.
+
+---
+
+diff -aruN a/arch/arm/mach-davinci/board-da830-evm.c b/arch/arm/mach-davinci/board-da830-evm.c
+--- a/arch/arm/mach-davinci/board-da830-evm.c	2010-07-07 12:17:28.673909000 +0530
++++ b/arch/arm/mach-davinci/board-da830-evm.c	2010-07-27 15:17:35.059526000 +0530
+@@ -174,6 +174,25 @@
+ 			   __func__, ret);
+ }
+ 
++static __init int da830_evm_config_pru_suart(void)
++{
++    int ret;
++
++    if (!machine_is_davinci_da830_evm())
++        return 0;
++
++    ret = da8xx_pinmux_setup(da830_pru_suart_pins);
++    if (ret)
++        pr_warning("da830_evm_init: da830_pru_suart_pins mux setup failed: %d\n",
++                ret);
++
++    ret = da8xx_register_pru_suart();
++    if (ret)
++        pr_warning("da830_evm_init: pru suart registration failed: %d\n", ret);
++    return ret;
++}
++device_initcall(da830_evm_config_pru_suart);
++
+ static struct davinci_uart_config da830_evm_uart_config __initdata = {
+ 	.enabled_uarts = 0x7,
+ };
+diff -aruN a/arch/arm/mach-davinci/board-da850-evm.c b/arch/arm/mach-davinci/board-da850-evm.c
+--- a/arch/arm/mach-davinci/board-da850-evm.c	2010-07-07 12:17:28.673909000 +0530
++++ b/arch/arm/mach-davinci/board-da850-evm.c	2010-07-07 16:12:14.058603000 +0530
+@@ -50,6 +50,7 @@
+ 
+ #define DA850_MMCSD_CD_PIN		GPIO_TO_PIN(4, 0)
+ #define DA850_MMCSD_WP_PIN		GPIO_TO_PIN(4, 1)
++#define DA850_PRU_CAN_TRX_PIN	GPIO_TO_PIN(2, 0)
+ 
+ #define DA850_MII_MDIO_CLKEN_PIN	GPIO_TO_PIN(2, 6)
+ 
+@@ -1039,6 +1040,50 @@
+ 	},
+ };
+ 
++static int __init da850_evm_config_pru_can(void)
++{
++    int ret;
++
++    if (!machine_is_davinci_da850_evm())
++        return 0;
++
++	ret = da8xx_pinmux_setup(da850_pru_can_pins);
++	if (ret)
++        pr_warning("da850_evm_init: da850_pru_can_pins mux setup failed: %d\n",
++                ret);
++
++	ret = gpio_request(DA850_PRU_CAN_TRX_PIN, "pru_can_en");
++    if (ret) 
++         pr_warning("Cannot open GPIO %d\n", DA850_PRU_CAN_TRX_PIN);
++
++	/* value = 0 to enable the can transceiver */
++    gpio_direction_output(DA850_PRU_CAN_TRX_PIN, 0);
++    ret = da8xx_register_pru_can();
++    if (ret)
++        pr_warning("da850_evm_init: pru can registration failed: %d\n", ret);
++    return ret;
++}
++device_initcall(da850_evm_config_pru_can);
++
++static int __init da850_evm_config_pru_suart(void)
++{
++    int ret;
++
++    if (!machine_is_davinci_da850_evm())
++        return 0;
++
++    ret = da8xx_pinmux_setup(da850_pru_suart_pins);
++    if (ret)
++        pr_warning("da850_evm_init: da850_pru_suart_pins mux setup failed: %d\n",
++                ret);
++
++    ret = da8xx_register_pru_suart();
++    if (ret)
++        pr_warning("da850_evm_init: pru suart registration failed: %d\n", ret);
++    return ret;
++}
++device_initcall(da850_evm_config_pru_suart);
++
+ static __init void da850_evm_init(void)
+ {
+ 	int ret;
+diff -aruN a/arch/arm/mach-davinci/da830.c b/arch/arm/mach-davinci/da830.c
+--- a/arch/arm/mach-davinci/da830.c	2010-07-07 12:17:28.673909000 +0530
++++ b/arch/arm/mach-davinci/da830.c	2010-07-27 15:17:35.059526000 +0530
+@@ -178,6 +178,13 @@
+ 	.lpsc		= DA8XX_LPSC0_MMC_SD,
+ };
+ 
++static struct clk pru_clk = {
++   .name       = "pru_ck",
++   .parent     = &pll0_sysclk2,
++   .lpsc       = DA8XX_LPSC0_DMAX,
++   .flags      = ALWAYS_ENABLED,
++};
++
+ static struct clk uart0_clk = {
+ 	.name		= "uart0",
+ 	.parent		= &pll0_sysclk2,
+@@ -267,6 +274,19 @@
+ 	.gpsc		= 1,
+ };
+ 
++static struct clk mcasp_pru_clk = {
++   .name       = "mcasp_pru",
++   .parent     = &pll0_sysclk2,
++#if (CONFIG_OMAPL_SUART_MCASP == 0)
++   .lpsc       = DA8XX_LPSC1_McASP0,
++#elif (CONFIG_OMAPL_SUART_MCASP == 1)
++   .lpsc       = DA830_LPSC1_McASP1,
++#elif (CONFIG_OMAPL_SUART_MCASP == 2)
++   .lpsc       = DA830_LPSC1_McASP2,
++#endif
++   .gpsc       = 1,
++};
++
+ static struct clk lcdc_clk = {
+ 	.name		= "lcdc",
+ 	.parent		= &pll0_sysclk2,
+@@ -392,6 +412,7 @@
+ 	CLK(NULL,		"tptc0",	&tptc0_clk),
+ 	CLK(NULL,		"tptc1",	&tptc1_clk),
+ 	CLK("davinci_mmc.0",	NULL,		&mmcsd_clk),
++	CLK(NULL,       "pru_ck",   &pru_clk),
+ 	CLK(NULL,		"uart0",	&uart0_clk),
+ 	CLK(NULL,		"uart1",	&uart1_clk),
+ 	CLK(NULL,		"uart2",	&uart2_clk),
+@@ -414,6 +435,7 @@
+ 	CLK(NULL,		"aintc",	&aintc_clk),
+ 	CLK(NULL,		"secu_mgr",	&secu_mgr_clk),
+ 	CLK("davinci_emac.1",	NULL,		&emac_clk),
++	CLK(NULL,   "mcasp_pru",    &mcasp_pru_clk),
+ 	CLK(NULL,		"gpio",		&gpio_clk),
+ 	CLK("i2c_davinci.2",	NULL,		&i2c1_clk),
+ 	CLK(NULL,		"usb11",	&usb11_clk),
+@@ -875,6 +897,27 @@
+ 	-1
+ };
+ 
++
++const short da830_pru_suart_pins[] __initdata = {
++#if (CONFIG_OMAPL_SUART_MCASP == 0)
++    DA830_AHCLKX0, DA830_ACLKX0, DA830_AFSX0,
++    DA830_AHCLKR0, DA830_ACLKR0, DA830_AFSR0,
++	DA830_AXR0_13, DA830_AXR0_9, DA830_AXR0_7, 
++	DA830_AXR0_14, DA830_AXR0_10, DA830_AXR0_8,
++#elif (CONFIG_OMAPL_SUART_MCASP == 1)
++    DA830_AHCLKX1, DA830_ACLKX1, DA830_AFSX1,
++    DA830_AHCLKR1, DA830_ACLKR1, DA830_AFSR1, DA830_AMUTE1,
++    DA830_AXR1_0, DA830_AXR1_1, DA830_AXR1_2, DA830_AXR1_3,
++    DA830_AXR1_4, DA830_AXR1_5, DA830_AXR1_6, DA830_AXR1_7,
++    DA830_AXR1_8, DA830_AXR1_9, DA830_AXR1_10, DA830_AXR1_11,
++#elif (CONFIG_OMAPL_SUART_MCASP == 2)
++    DA830_AHCLKX2, DA830_ACLKX2, DA830_AFSX2,
++    DA830_AHCLKR2, DA830_ACLKR2, DA830_AFSR2, DA830_AMUTE2,
++    DA830_AXR2_0, DA830_AXR2_1, DA830_AXR2_2, DA830_AXR2_3,
++#endif
++   -1
++};
++
+ const short da830_uart1_pins[] __initdata = {
+ 	DA830_UART1_RXD, DA830_UART1_TXD,
+ 	-1
+diff -aruN a/arch/arm/mach-davinci/da850.c b/arch/arm/mach-davinci/da850.c
+--- a/arch/arm/mach-davinci/da850.c	2010-07-07 12:17:28.673909000 +0530
++++ b/arch/arm/mach-davinci/da850.c	2010-08-10 18:49:38.969893000 +0530
+@@ -15,6 +15,7 @@
+ #include <linux/clk.h>
+ #include <linux/platform_device.h>
+ #include <linux/cpufreq.h>
++#include <linux/delay.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/platform_device.h>
+ 
+@@ -237,6 +238,13 @@
+ 	.flags		= ALWAYS_ENABLED,
+ };
+ 
++static struct clk pru_clk = {
++	.name		= "pru_ck",
++	.parent		= &pll0_sysclk2,
++	.lpsc		= DA8XX_LPSC0_DMAX,
++	.flags      = ALWAYS_ENABLED,
++};
++
+ static struct clk uart0_clk = {
+ 	.name		= "uart0",
+ 	.parent		= &pll0_sysclk2,
+@@ -317,6 +325,13 @@
+ 	.flags		= DA850_CLK_ASYNC3,
+ };
+ 
++static struct clk mcasp_pru_clk = {
++	.name		= "mcasp_pru",
++	.parent		= &pll0_sysclk2,
++	.lpsc		= DA8XX_LPSC1_McASP0,
++	.gpsc		= 1,
++	.flags		= DA850_CLK_ASYNC3,
++};
+ static struct clk lcdc_clk = {
+ 	.name		= "lcdc",
+ 	.parent		= &pll0_sysclk2,
+@@ -420,6 +435,7 @@
+ 	CLK(NULL,		"tpcc1",	&tpcc1_clk),
+ 	CLK(NULL,		"tptc2",	&tptc2_clk),
+ 	CLK(NULL,		"uart0",	&uart0_clk),
++	CLK(NULL,		"pru_ck",	&pru_clk),
+ 	CLK(NULL,		"uart1",	&uart1_clk),
+ 	CLK(NULL,		"uart2",	&uart2_clk),
+ 	CLK(NULL,		"aintc",	&aintc_clk),
+@@ -429,6 +445,7 @@
+ 	CLK(NULL,		"arm",		&arm_clk),
+ 	CLK(NULL,		"rmii",		&rmii_clk),
+ 	CLK("davinci_emac.1",	NULL,		&emac_clk),
++	CLK(NULL,	"mcasp_pru",	&mcasp_pru_clk),
+ 	CLK("davinci-mcasp.0",	NULL,		&mcasp_clk),
+ 	CLK("da8xx_lcdc.0",	NULL,		&lcdc_clk),
+ 	CLK("davinci_mmc.0",	NULL,		&mmcsd_clk),
+@@ -447,9 +464,13 @@
+ 
+ /*
+  * Device specific mux setup
+- *
+- *		soc	description	mux	mode	mode	mux	dbg
+- *					reg	offset	mask	mode
++ *	soc			-> DA850
++ *	desc		-> Pin name, which evaluates to soc##_##desc.
++ *	muxreg	 	-> Pin Multiplexing Control n (PINMUXn) Register number.
++ *	mode_offset	-> Bit offset in the register PINMUXn.
++ *	mode_mask	-> Number of bits for Pin Multiplexing Control n.
++ *	mux_mode	-> Multiplexing mode to set.
++ *	dbg			-> debug on/off.
+  */
+ static const struct mux_config da850_pins[] = {
+ #ifdef CONFIG_DAVINCI_MUX
+@@ -570,7 +591,7 @@
+ 	MUX_CFG(DA850, EMA_A_5,		12,	8,	15,	1,	false)
+ 	MUX_CFG(DA850, EMA_A_6,		12,	4,	15,	1,	false)
+ 	MUX_CFG(DA850, EMA_A_7,		12,	0,	15,	1,	false)
+-	MUX_CFG(DA850, EMA_A_8,		11,	28,	15,	1,	false)
++	MUX_CFG(DA850, EMA_A_8,		11,	28,	15,	8,	false)
+ 	MUX_CFG(DA850, EMA_A_9,		11,	24,	15,	1,	false)
+ 	MUX_CFG(DA850, EMA_A_10,	11,	20,	15,	1,	false)
+ 	MUX_CFG(DA850, EMA_A_11,	11,	16,	15,	1,	false)
+@@ -598,12 +619,17 @@
+ 	MUX_CFG(DA850, EMA_CLK,		6,	0,	15,	1,	false)
+ 	MUX_CFG(DA850, EMA_WAIT_1,	6,	24,	15,	1,	false)
+ 	MUX_CFG(DA850, NEMA_CS_2,	7,	0,	15,	1,	false)
++    /* PRU functions for soft can */
++    MUX_CFG(DA850, PRU0_R31_0,  7,  28, 15, 0,  false)
++    MUX_CFG(DA850, PRU1_R30_15, 12, 0,  15, 4,  false)
++    MUX_CFG(DA850, PRU1_R31_18, 11, 20,  15, 0,  false)
+ 	/* SPI1 function */
+ 	MUX_CFG(DA850, SPI1_CS_0,	5,	4,	15,	1,	false)
+ 	MUX_CFG(DA850, SPI1_CLK,	5,	8,	15,	1,	false)
+ 	MUX_CFG(DA850, SPI1_SOMI,	5,	16,	15,	1,	false)
+ 	MUX_CFG(DA850, SPI1_SIMO,	5,	20,	15,	1,	false)
+ 	/* GPIO function */
++	MUX_CFG(DA850, GPIO2_0,     6,  28, 15, 8,  false)
+ 	MUX_CFG(DA850, GPIO2_6,		6,	4,	15,	8,	false)
+ 	MUX_CFG(DA850, GPIO2_8,		5,	28,	15,	8,	false)
+ 	MUX_CFG(DA850, GPIO2_15,	5,	0,	15,	8,	false)
+@@ -680,6 +706,20 @@
+ 	-1
+ };
+ 
++const short da850_pru_can_pins[] __initdata = {
++	DA850_GPIO2_0, DA850_PRU0_R31_0, DA850_PRU1_R30_15,
++	DA850_PRU1_R31_18,
++	-1
++};
++
++const short da850_pru_suart_pins[] __initdata = {
++	DA850_AHCLKX, DA850_ACLKX, DA850_AFSX,
++    DA850_AHCLKR, DA850_ACLKR, DA850_AFSR,
++    DA850_AXR_13, DA850_AXR_9, DA850_AXR_7,
++	DA850_AXR_14, DA850_AXR_10, DA850_AXR_8,
++	-1
++};
++
+ const short da850_uart1_pins[] __initdata = {
+ 	DA850_UART1_RXD, DA850_UART1_TXD,
+ 	-1
+@@ -758,7 +798,7 @@
+ 	DA850_EMA_D_14, DA850_EMA_D_15, DA850_EMA_A_0, DA850_EMA_A_1,
+ 	DA850_EMA_A_2, DA850_EMA_A_3, DA850_EMA_A_4, DA850_EMA_A_5,
+ 	DA850_EMA_A_6, DA850_EMA_A_7, DA850_EMA_A_8, DA850_EMA_A_9,
+-	DA850_EMA_A_10, DA850_EMA_A_11, DA850_EMA_A_12, DA850_EMA_A_13,
++	/*DA850_EMA_A_10,*/ DA850_EMA_A_11, DA850_EMA_A_12, DA850_EMA_A_13,
+ 	DA850_EMA_A_14, DA850_EMA_A_15, DA850_EMA_A_16, DA850_EMA_A_17,
+ 	DA850_EMA_A_18, DA850_EMA_A_19, DA850_EMA_A_20, DA850_EMA_A_21,
+ 	DA850_EMA_A_22, DA850_EMA_A_23,
+diff -aruN a/arch/arm/mach-davinci/devices-da8xx.c b/arch/arm/mach-davinci/devices-da8xx.c
+--- a/arch/arm/mach-davinci/devices-da8xx.c	2010-07-07 12:17:28.673909000 +0530
++++ b/arch/arm/mach-davinci/devices-da8xx.c	2010-08-12 17:41:30.983970000 +0530
+@@ -14,6 +14,8 @@
+ #include <linux/platform_device.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/serial_8250.h>
++#include <linux/ti_omapl_pru_suart.h>
++#include <linux/can/platform/ti_omapl_pru_can.h>
+ 
+ #include <mach/cputype.h>
+ #include <mach/common.h>
+@@ -91,6 +93,153 @@
+ 	},
+ };
+ 
++#define OMAPL138_PRU_MEM_BASE	   0x01C30000
++
++#define OMAPL138_INT_PRU_SUART_1 IRQ_DA8XX_EVTOUT0
++#define OMAPL138_INT_PRU_SUART_2 IRQ_DA8XX_EVTOUT1
++#define OMAPL138_INT_PRU_SUART_3 IRQ_DA8XX_EVTOUT2
++#define OMAPL138_INT_PRU_SUART_4 IRQ_DA8XX_EVTOUT3
++#define OMAPL138_INT_PRU_SUART_5 IRQ_DA8XX_EVTOUT4
++#define OMAPL138_INT_PRU_SUART_6 IRQ_DA8XX_EVTOUT5
++#define OMAPL138_INT_PRU_SUART_7 IRQ_DA8XX_EVTOUT6
++#define OMAPL138_INT_PRU_SUART_8 IRQ_DA8XX_EVTOUT7
++#ifndef CONFIG_OMAPL_SUART_MCASP
++#define CONFIG_OMAPL_SUART_MCASP 0
++#endif
++static struct resource omapl138_pru_suart_resources[] = {
++        {
++				.name 	= "omapl_pru_suart",
++                .start  = OMAPL138_PRU_MEM_BASE,
++                .end    = OMAPL138_PRU_MEM_BASE + 0xFFFF,
++                .flags  = IORESOURCE_MEM,
++        },
++        {
++#if (CONFIG_OMAPL_SUART_MCASP == 0)
++				.start  = DAVINCI_DA8XX_MCASP0_REG_BASE,
++		        .end    = DAVINCI_DA8XX_MCASP0_REG_BASE + (SZ_1K * 12) - 1,
++                .flags  = IORESOURCE_MEM,
++#elif (CONFIG_OMAPL_SUART_MCASP == 1)
++				.start  = DAVINCI_DA830_MCASP1_REG_BASE,
++		        .end    = DAVINCI_DA830_MCASP1_REG_BASE + (SZ_1K * 12) - 1,
++                .flags  = IORESOURCE_MEM,
++#elif (CONFIG_OMAPL_SUART_MCASP == 2)
++				.start  = DAVINCI_DA830_MCASP2_REG_BASE,
++		        .end    = DAVINCI_DA830_MCASP2_REG_BASE + (SZ_1K * 12) - 1,
++                .flags  = IORESOURCE_MEM,
++#endif
++        },
++
++        {
++				.start  = DA8XX_PSC0_BASE,
++		        .end    = DA8XX_PSC0_BASE + (SZ_1K * 3) - 1,
++                .flags  = IORESOURCE_MEM,
++        },
++        {
++				.start  = DA8XX_PSC1_BASE,
++		        .end    = DA8XX_PSC1_BASE + (SZ_1K * 3) - 1,
++                .flags  = IORESOURCE_MEM,
++        },
++        {
++				.start  = DA8XX_SHARED_RAM_BASE,
++		        .end    = DA8XX_SHARED_RAM_BASE + (SZ_1K * 8) - 1,
++                .flags  = IORESOURCE_MEM,
++        },
++        {
++                .start  = OMAPL138_INT_PRU_SUART_1,
++                .end    = OMAPL138_INT_PRU_SUART_1,
++                .flags  = IORESOURCE_IRQ,
++        },
++        {
++                .start  = OMAPL138_INT_PRU_SUART_2,
++                .end    = OMAPL138_INT_PRU_SUART_2,
++                .flags  = IORESOURCE_IRQ,
++        },
++        {
++                .start  = OMAPL138_INT_PRU_SUART_3,
++                .end    = OMAPL138_INT_PRU_SUART_3,
++                .flags  = IORESOURCE_IRQ,
++        },
++        {
++                .start  = OMAPL138_INT_PRU_SUART_4,
++                .end    = OMAPL138_INT_PRU_SUART_4,
++                .flags  = IORESOURCE_IRQ,
++        },
++        {
++                .start  = OMAPL138_INT_PRU_SUART_5,
++                .end    = OMAPL138_INT_PRU_SUART_5,
++                .flags  = IORESOURCE_IRQ,
++        },
++        {
++                .start  = OMAPL138_INT_PRU_SUART_6,
++                .end    = OMAPL138_INT_PRU_SUART_6,
++                .flags  = IORESOURCE_IRQ,
++        },
++        {
++                .start  = OMAPL138_INT_PRU_SUART_7,
++                .end    = OMAPL138_INT_PRU_SUART_7,
++                .flags  = IORESOURCE_IRQ,
++        },
++        {
++                .start  = OMAPL138_INT_PRU_SUART_8,
++                .end    = OMAPL138_INT_PRU_SUART_8,
++                .flags  = IORESOURCE_IRQ,
++        },
++};
++
++struct platform_device omapl_pru_suart_device = {
++    .name   = "ti_omapl_pru_suart",
++    .id             = 1,
++    .num_resources  = ARRAY_SIZE(omapl138_pru_suart_resources),
++    .resource       = omapl138_pru_suart_resources,
++};
++
++#define OMAPL138_PRU_SUART_VERSION           1
++
++static struct ti_pru_suart_platform_data ti_pru_suart_pdata = {
++        .version                = OMAPL138_PRU_SUART_VERSION,
++};
++
++int __init da8xx_register_pru_suart(void)
++{
++        omapl_pru_suart_device.dev.platform_data = &ti_pru_suart_pdata;
++        return platform_device_register(&omapl_pru_suart_device);
++}
++
++/* Info specific to OMAPL138 */
++#define OMAPL138_INT_PRU_CAN IRQ_DA8XX_EVTOUT0
++static struct resource omapl138_pru_can_resources[] = {
++        {
++                .start  = OMAPL138_PRU_MEM_BASE,
++                .end    = OMAPL138_PRU_MEM_BASE + 0xFFFF,
++                .flags  = IORESOURCE_MEM,
++        },
++        {
++                .start  = OMAPL138_INT_PRU_CAN,
++                .end    = OMAPL138_INT_PRU_CAN,
++                .flags  = IORESOURCE_IRQ,
++        },
++};
++
++static struct platform_device omapl138_pru_can_device = {
++        .name           = "ti_omapl_pru_can",
++        .id             = 1,
++        .num_resources  = ARRAY_SIZE(omapl138_pru_can_resources),
++        .resource       = omapl138_pru_can_resources,
++};
++
++/* Info specific to CAN conroller */
++#define OMAPL138_PRU_CAN_VERSION           1
++
++static struct ti_pru_can_platform_data ti_pru_can_pdata = {
++        .version                = OMAPL138_PRU_CAN_VERSION,
++};
++
++int __init da8xx_register_pru_can(void)
++{
++    omapl138_pru_can_device.dev.platform_data = &ti_pru_can_pdata;
++    return platform_device_register(&omapl138_pru_can_device);
++}
++
+ static const s8 da8xx_queue_tc_mapping[][2] = {
+ 	/* {event queue no, TC no} */
+ 	{0, 0},
+diff -aruN a/arch/arm/mach-davinci/include/mach/asp.h b/arch/arm/mach-davinci/include/mach/asp.h
+--- a/arch/arm/mach-davinci/include/mach/asp.h	2010-07-07 12:17:28.673909000 +0530
++++ b/arch/arm/mach-davinci/include/mach/asp.h	2010-07-27 15:17:35.059526000 +0530
+@@ -24,6 +24,9 @@
+ /* Bases of da830 McASP1 register banks */
+ #define DAVINCI_DA830_MCASP1_REG_BASE	0x01D04000
+ 
++/* Bases of da830 McASP2 register banks */
++#define DAVINCI_DA830_MCASP2_REG_BASE	0x01D08000
++
+ /* EDMA channels of dm644x and dm355 */
+ #define DAVINCI_DMA_ASP0_TX	2
+ #define DAVINCI_DMA_ASP0_RX	3
+diff -aruN a/arch/arm/mach-davinci/include/mach/da8xx.h b/arch/arm/mach-davinci/include/mach/da8xx.h
+--- a/arch/arm/mach-davinci/include/mach/da8xx.h	2010-07-07 12:17:28.673909000 +0530
++++ b/arch/arm/mach-davinci/include/mach/da8xx.h	2010-07-27 15:17:35.059526000 +0530
+@@ -141,6 +141,8 @@
+ int da8xx_register_usb20(unsigned mA, unsigned potpgt);
+ int da8xx_register_usb11(struct da8xx_ohci_root_hub *pdata);
+ int da8xx_register_emac(void);
++int da8xx_register_pru_can(void);
++int da8xx_register_pru_suart(void);
+ int da8xx_register_lcdc(struct da8xx_lcdc_platform_data *pdata);
+ int da8xx_register_mmcsd0(struct davinci_mmc_config *config);
+ void __init da8xx_register_mcasp(int id, struct snd_platform_data *pdata);
+@@ -185,6 +187,7 @@
+ extern const short da830_mcasp0_pins[];
+ extern const short da830_mcasp1_pins[];
+ extern const short da830_mcasp2_pins[];
++extern const short da830_pru_suart_pins[];
+ extern const short da830_i2c0_pins[];
+ extern const short da830_i2c1_pins[];
+ extern const short da830_lcdcntl_pins[];
+@@ -202,6 +205,8 @@
+ extern const short da850_i2c1_pins[];
+ extern const short da850_cpgmac_pins[];
+ extern const short da850_rmii_pins[];
++extern const short da850_pru_can_pins[];
++extern const short da850_pru_suart_pins[];
+ extern const short da850_mcasp_pins[];
+ extern const short da850_lcdcntl_pins[];
+ extern const short da850_mmcsd0_pins[];
+diff -aruN a/arch/arm/mach-davinci/include/mach/memory.h b/arch/arm/mach-davinci/include/mach/memory.h
+--- a/arch/arm/mach-davinci/include/mach/memory.h	2010-07-07 12:17:28.673909000 +0530
++++ b/arch/arm/mach-davinci/include/mach/memory.h	2010-07-09 14:55:09.567838000 +0530
+@@ -22,6 +22,7 @@
+  **************************************************************************/
+ #define DAVINCI_DDR_BASE	0x80000000
+ #define DA8XX_DDR_BASE		0xc0000000
++#define DA8XX_SHARED_RAM_BASE 0x80000000
+ 
+ #if defined(CONFIG_ARCH_DAVINCI_DA8XX) && defined(CONFIG_ARCH_DAVINCI_DMx)
+ #error Cannot enable DaVinci and DA8XX platforms concurrently
+diff -aruN a/arch/arm/mach-davinci/include/mach/mux.h b/arch/arm/mach-davinci/include/mach/mux.h
+--- a/arch/arm/mach-davinci/include/mach/mux.h	2010-07-07 12:17:28.673909000 +0530
++++ b/arch/arm/mach-davinci/include/mach/mux.h	2010-08-10 18:49:38.969893000 +0530
+@@ -893,14 +893,17 @@
+ 	DA850_EMA_CLK,
+ 	DA850_EMA_WAIT_1,
+ 	DA850_NEMA_CS_2,
+-
++    /* PRU I/O */
++    DA850_PRU0_R31_0,
++    DA850_PRU1_R30_15,
++    DA850_PRU1_R31_18,
+ 	/* SPI1 function */
+ 	DA850_SPI1_CS_0,
+ 	DA850_SPI1_CLK,
+ 	DA850_SPI1_SOMI,
+ 	DA850_SPI1_SIMO,
+-
+ 	/* GPIO function */
++	DA850_GPIO2_0,
+ 	DA850_GPIO2_6,
+ 	DA850_GPIO2_8,
+ 	DA850_GPIO2_15,
