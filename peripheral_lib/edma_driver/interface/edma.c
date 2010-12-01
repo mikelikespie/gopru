@@ -22,7 +22,7 @@
 #include <strings.h>
 
 
-#include "../module/edma.h"
+#include "../module/edmautils.h"
 #include "edma.h"
 
 #define EDMA_DEVICE "/dev/edma"

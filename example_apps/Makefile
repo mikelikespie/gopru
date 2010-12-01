@@ -1,9 +1,9 @@
 -include DIRS
 
 LIBDIR_APP_LOADER?=../../app_loader/lib
-LIBDIR_EDMA_DRIVER?=../../peripheral_lib/eDMA_driver/lib/
+LIBDIR_EDMA_DRIVER?=../../peripheral_lib/edma_driver/lib/
 INCDIR_APP_LOADER?=../../app_loader/include
-INCDIR_EDMA_DRIVER?=../../peripheral_lib/eDMA_driver/include
+INCDIR_EDMA_DRIVER?=../../peripheral_lib/edma_driver/include
 BINDIR_APPLICATIONS?=../bin
 BINDIR_FW?=bin
 UTILS_DIR?=../utils

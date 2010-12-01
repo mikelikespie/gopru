@@ -1,13 +1,13 @@
 CC=arm-none-linux-gnueabi-gcc
 
 LIBDIR_APP_LOADER?=../../app_loader/lib
-LIBDIR_EDMA_DRIVER?=../../peripheral_lib/eDMA_driver/lib/
+LIBDIR_EDMA_DRIVER?=../../peripheral_lib/edma_driver/lib/
 INCDIR_APP_LOADER?=../../app_loader/include
-INCDIR_EDMA_DRIVER?=../../peripheral_lib/eDMA_driver/include
+INCDIR_EDMA_DRIVER?=../../peripheral_lib/edma_driver/include
 BINDIR?=../bin
 
 CFLAGS+= -Wall -I$(INCDIR_APP_LOADER) -I$(INCDIR_EDMA_DRIVER) -D__DEBUG -O2 -mtune=arm926ej-s -march=armv5te
-LDFLAGS+=-L$(LIBDIR_APP_LOADER) -L$(LIBDIR_EDMA_DRIVER) -lprussdrv -lpthread -ledma
+LDFLAGS+=-L$(LIBDIR_APP_LOADER) -L$(LIBDIR_EDMA_DRIVER) -lprussdrv -lpthread -ledmautils
 OBJDIR=obj
 TARGET=$(BINDIR)/PRU_edmaConfig
 

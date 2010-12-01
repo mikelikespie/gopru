@@ -1,5 +1,5 @@
 ROOTDIR = ..
-TARGET = libedma
+TARGET = libedmautils
 
 include $(ROOTDIR)/Rules.make
 
