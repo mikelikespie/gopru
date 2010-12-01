@@ -1,7 +1,7 @@
 ROOTDIR = ../
 -include $(ROOTDIR)/Rules.make
 
-obj-m += edma.o
+obj-m += edmautils.o
 
 EXTRA_CFLAGS +=	-DUSE_UDEV=$(USE_UDEV) 
 

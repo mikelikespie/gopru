@@ -6,6 +6,7 @@ CSTOOL_PREFIX=arm-none-linux-gnueabi-
 # be ignored when building this particular module.
 
 KERNEL_DIR?=<path-to-kernel-source>
+KERNEL_SRC_DIR?=<path-to-kernel-source>
 
 # Whether or not to use the udev pseudo filesystem to generate the /dev
 # filesystem for cmem. This depends on your kernel configuration. If udev is
