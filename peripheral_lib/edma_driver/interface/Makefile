@@ -9,7 +9,7 @@ AR = $(CSTOOL_PREFIX)ar
 INCLUDEDIR = ../include
 LIBDIR	   = ../lib
 
-C_FLAGS += -I. -Wall -I$(INCLUDEDIR) -I$(KERNEL_SRC_DIR)/include 
+C_FLAGS += -I. -Wall -I$(INCLUDEDIR) -I$(KERNEL_DIR)/include 
 
 COMPILE.c = $(CC) $(C_FLAGS) $(CPP_FLAGS) -c
 AR.c	  = $(AR) rc
