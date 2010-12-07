@@ -1,6 +1,43 @@
 /*
  * prussdrv.c
  *
+ * User space driver for PRUSS
+ *
+ * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/ 
+ * 
+ * 
+ *  Redistribution and use in source and binary forms, with or without 
+ *  modification, are permitted provided that the following conditions 
+ *  are met:
+ *
+ *    Redistributions of source code must retain the above copyright 
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ *    Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the 
+ *    documentation and/or other materials provided with the   
+ *    distribution.
+ *
+ *    Neither the name of Texas Instruments Incorporated nor the names of
+ *    its contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ *  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ *  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ *  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ *  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+*/
+
+
+/*
  * ============================================================================
  * Copyright (c) Texas Instruments Inc 2010-11
  *
@@ -35,28 +72,21 @@ int __prussdrv_memmap_init(void)
         else
             prussdrv.mmap_fd = prussdrv.fd[i];
     }
-//	printf("No error.\n");
     fd = open(PRUSS_UIO_DRV_PRUSS_BASE, O_RDONLY);
     if (fd >= 0) {
         read(fd, hexstring, 20);
         pruss_phys_base = strtoul(hexstring, NULL, 16);
-//		printf("Base Address: %x\n", &pruss_phys_base);
-//		printf("Base Value: %x\n", *(unsigned int*) pruss_phys_base);
         close(fd);
     } else
         return -1;
- //printf("No error.\n");
     fd = open(PRUSS_UIO_DRV_PRUSS_SIZE, O_RDONLY);
     if (fd >= 0) {
         read(fd, hexstring, 20);
         pruss_map_size = strtoul(hexstring, NULL, 16);
-//		printf("Size Addr: %x\n", &pruss_phys_size);
-//		printf("Size Value: %x\n", *(unsigned int*) pruss_map_size);
         close(fd);
     } else
         return -1;
 
-//printf("No error.\n");
     prussdrv.pru0dataram_base =
         mmap(0, pruss_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
              prussdrv.mmap_fd, pruss_phys_base);
@@ -188,7 +218,6 @@ int prussdrv_pru_disable(unsigned int prunum)
         prucontrolregs = (unsigned int *) prussdrv.pru1control_base;
     else
         return -1;
-//	printf("regs = %x\n", *(unsigned int*) prucontrolregs);
     *prucontrolregs = 1;
     return 0;
 
@@ -200,24 +229,18 @@ int prussdrv_pru_write_memory(unsigned int pru_ram_id,
                               unsigned int bytelength)
 {
     unsigned int *pruramarea, i, wordlength;
-//	printf("No error.\n");
     switch (pru_ram_id) {
-//	printf("No error.\n");
     case PRUSS0_PRU0_IRAM:
         pruramarea = (unsigned int *) prussdrv.pru0iram_base;
-//		printf("No error.\n");
         break;
     case PRUSS0_PRU1_IRAM:
         pruramarea = (unsigned int *) prussdrv.pru1iram_base;
-//		printf("No error.\n");
         break;
     case PRUSS0_PRU0_DATARAM:
         pruramarea = (unsigned int *) prussdrv.pru0dataram_base;
-//		printf("No error.\n");
         break;
     case PRUSS0_PRU1_DATARAM:
         pruramarea = (unsigned int *) prussdrv.pru1dataram_base;
-//		printf("No error.\n");
         break;
     default:
         return -1;
@@ -225,10 +248,8 @@ int prussdrv_pru_write_memory(unsigned int pru_ram_id,
 
 
     wordlength = (bytelength + 3) >> 2; //Adjust length as multiple of 4 bytes
-//	printf("No error.\n");
     for (i = 0; i < wordlength; i++) {
         *(pruramarea + i + wordoffset) = *(memarea + i);
-//		printf("No error.\n");
     }
     return wordlength;
 
@@ -398,7 +419,6 @@ unsigned int prussdrv_get_phys_addr(void *address)
             ((unsigned int) (address - prussdrv.extram_base) +
              extram_phys_base);
     }
-    //printf ("virt_addr: %X phys_addr: %X\n",address,  retaddr);       
     return retaddr;
 
 }
@@ -427,7 +447,6 @@ void *prussdrv_get_virt_addr(unsigned int phyaddr)
             (void *) ((unsigned int) prussdrv.extram_base +
                       (phyaddr - extram_phys_base));
     }
-    //printf ("phys_addr: %X virt_addr: %X\n",  phyaddr, address);      
     return address;
 
 }
@@ -489,12 +508,9 @@ int prussdrv_exec_program(int prunum, char *filename)
     fclose(fPtr);
 
     // Make sure PRU sub system is first disabled/reset  
-//	printf("Disable\n");
     prussdrv_pru_disable(prunum);
-//	printf("Write\n");
     prussdrv_pru_write_memory(pru_ram_id, 0,
                               (unsigned int *) fileDataArray, fileSize);
-//	printf("Enable\n");
     prussdrv_pru_enable(prunum);
 
     return 0;

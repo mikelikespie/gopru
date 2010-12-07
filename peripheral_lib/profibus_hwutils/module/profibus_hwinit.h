@@ -1,5 +1,5 @@
-/**
- * @file    Dprofibus.h 
+/*
+ * @file    profibus.h 
  * @brief   Describes the interface to the profibus module.
  * @version alpha3
  *
@@ -11,14 +11,26 @@
  * 
  * @verbatim /sbin/insmod profibus.ko  @endverbatim
  *
- * @verbatim
+ *
+ * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/
+ * 
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as 
+ * published by the Free Software Foundation version 2.
+ *
+ * This program is distributed .as is. WITHOUT ANY WARRANTY of any
+ * kind, whether express or implied; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
  * ============================================================================
  * Copyright (c) Texas Instruments Inc 2009
  *
  * Use of this software is controlled by the terms and conditions found in the
  * license agreement under which this software has been supplied or provided.
  * ============================================================================
- * @endverbatim
  */
 
 #ifndef _PROFIBUS_HWINIT_H
