@@ -12,7 +12,7 @@ each directory of the pru_sw are shown below:
     |--\peripheral_lib  GPLv2 (module files) 
     |                   BSD (interface and include files)
     |
-    |--\utils           
+    |--\utils           (executable binary)
     |
 
 The licensing headers are shown below:
@@ -29,7 +29,7 @@ The licensing headers are shown below:
  * modify it under the terms of the GNU General Public License as 
  * published by the Free Software Foundation version 2.
  *
- * This program is distributed .as is. WITHOUT ANY WARRANTY of any
+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
  * kind, whether express or implied; without even the implied warranty
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -103,4 +103,15 @@ The licensing headers are shown below:
 //|                                                                          |**
 //+--------------------------------------------------------------------------+**
 //*****************************************************************************/
+// file:   {Name of the file}
+//
+// brief:  {Describe the function of this file}
+//
+//
+//  (C) Copyright 2010, Texas Instruments, Inc
+//
+//  author     {Author Name}
+//
+//  version    0.1     Created
+//
 

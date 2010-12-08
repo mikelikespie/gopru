@@ -7,20 +7,12 @@
  * modify it under the terms of the GNU General Public License as 
  * published by the Free Software Foundation version 2.
  *
- * This program is distributed .as is. WITHOUT ANY WARRANTY of any
+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
  * kind, whether express or implied; without even the implied warranty
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
 
-/*
- * ============================================================================
- * Copyright (c) Texas Instruments Inc 2009
- *
- * Use of this software is controlled by the terms and conditions found in the
- * license agreement under which this software has been supplied or provided.
- * ============================================================================
- */
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/moduleparam.h>
