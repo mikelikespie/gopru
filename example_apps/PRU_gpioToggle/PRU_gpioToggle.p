@@ -46,7 +46,7 @@ GPIO_TOGGLE:
     // Load starting bit to toggle
     LDI       global.count,	GPIO_BIT
 
-LOOP:
+PIN_LOOP:
     QBLT      DONE, global.count, GPIO_COUNT
     QBBC	  SET_GPIO, r30, global.count
     QBBS	  CLR_GPIO, r30, global.count
@@ -54,12 +54,12 @@ LOOP:
 SET_GPIO:
     gpioSet   global.count
     ADD       global.count, global.count, 0x1
-    JMP		  LOOP
+    JMP		  PIN_LOOP
 	
 CLR_GPIO:
     gpioClr   global.count
     ADD       global.count, global.count, 0x1
-    JMP		  LOOP
+    JMP		  PIN_LOOP
 
 DONE:
 	// send notification to Host for program completion

@@ -47,8 +47,9 @@
 * PRU_gpioToggle.c
 *
 * The PRU controls the GPIO output by writing to R30. The PRU configures the 
-* pin mux registers for PRU outputs as an initialization step. The example 
-* toggles bits 0-31 of R30 by inverting each bit.  
+* pin mux registers for PRU_R30[30, 31]  outputs as an initialization step. 
+* The example toggles bits 30-31 of R30 by inverting each bit. Lastly, the 
+* pin mux registers are reset to their original values.
 *
 ******************************************************************************/
 
@@ -148,6 +149,16 @@ int main (void)
         printf("INFO: Example failed.\r\n");
     }
 
+    /* Reset pinmux registers */
+    printf("\tINFO: Executing pinmux reset.\r\n");
+    prussdrv_exec_program (PRU_NUM, "./pinmux_reset.bin");
+
+    /* Wait until PRU0 has finished execution */
+    printf("\tINFO: Waiting for HALT command.\r\n");
+    prussdrv_pru_wait_event (PRU_EVTOUT_0);
+    printf("\tINFO: PRU completed transfer.\r\n");
+    prussdrv_pru_clear_event (PRU0_ARM_INTERRUPT);
+    
     /* Disable PRU and close memory mapping*/
     prussdrv_pru_disable (PRU_NUM);
     prussdrv_exit ();
@@ -202,8 +213,8 @@ static unsigned short LOCAL_examplePassed ( )
     /* Read final state of reg30 */
     reg30_finalState = *(unsigned long*) mem_pruReg30;
 
-    /* Check all bits in reg30 are inverted */
-    if ((reg30_initState ^ reg30_finalState) != 0xFFFFFFFF)
+    /* Check bits 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 30 and 31 in reg30 are inverted */
+    if ((reg30_initState ^ reg30_finalState) != 0xC0000000)
     {    
         return FALSE;
     }    

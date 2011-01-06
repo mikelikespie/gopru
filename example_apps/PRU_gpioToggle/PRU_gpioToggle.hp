@@ -78,7 +78,7 @@
   CLR	r30, r30, bitNum
 .endm
 
-#define GPIO_BIT          0
+#define GPIO_BIT          30
 #define GPIO_COUNT        31
 
 

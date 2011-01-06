@@ -26,21 +26,21 @@
 //|                                                                          |**
 //+--------------------------------------------------------------------------+**
 //*****************************************************************************/
-// file:   pinmux.p
+// file:   pinmux_reset.p
 //
-// brief:  This file is responsible of PIN MUX settings via R30/R31
-//         for both the PRUs
+// brief:  This file is responsible of resetting the PIN MUX settings to the 
+//         original settings that were changed by pinmux.p
 //
 //
 //  (C) Copyright 2010, Texas Instruments, Inc
 //
-//  author     Amit Chatterjee/ M. Watkins
+//  author     M. Watkins
 //
-//  version    0.3
+//  version    0.1
 //
 
-#ifndef __pinmux_p
-#define __pinmux_p 1
+#ifndef __pinmux_reset_p
+#define __pinmux_reset_p 1
 
 #include "pinmux.hp"
 
@@ -57,29 +57,15 @@
 
 main:
 
-    //Configure PINMUX for PRU0_R30[31]
-    //PRU0_R30[31]
+    //Reset PINMUX13
     M_MOV32   R0, SYS_BASE            
-    LBBO    R1, R0, PINMUX13, 4 
-    SBCO    R1, C3, 0, 4        // Store original setting of PINMUX13
-                                // for pinmux_reset.p
-    AND R1.b1,R1.b1,#0xF0
-    OR R1.b1,R1.b1,#0x01
+    LBCO    R1, C3, 0, 4
     SBBO    R1, R0, PINMUX13, 4
 
-    //PRU0_R30[30]
-    M_MOV32   R0, SYS_BASE            
-    LBBO    R1, R0, PINMUX13, 4 
-    AND R1.b1,R1.b1,#0x0F
-    OR R1.b1,R1.b1,#0x10
-    SBBO    R1, R0, PINMUX13, 4
-    
-	// Send notification to Host for program completion
+    // Send notification to Host for program completion
     MOV R31.b0, #PRU0_ARM_INTERRUPT
     
     // Halt the processor
     HALT
     
 #endif
-
-
