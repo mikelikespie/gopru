@@ -117,7 +117,7 @@ DONT_SORT:
     ADD       offset, offset, 1
     QBGT      START_SORT, offset, N_extracts-1
 
-LOOP:
+LOOP_FOR_SORT:
     ADD       cnt, cnt, 1
     QBGT      EXIT_EXTRACT, cnt, N_extracts
     LDI       offset, #00
