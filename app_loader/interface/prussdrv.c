@@ -55,7 +55,6 @@
 static tprussdrv prussdrv;
 static pthread_mutex_t prussdrv_send_event_mutex =
     PTHREAD_MUTEX_INITIALIZER;
-//static pthread_mutex_t prussdrv_clear_event_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int __prussdrv_memmap_init(void)
 {
@@ -89,7 +88,7 @@ int __prussdrv_memmap_init(void)
 
     prussdrv.pru0dataram_base =
         mmap(0, pruss_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-             prussdrv.mmap_fd, pruss_phys_base);
+             prussdrv.mmap_fd, PRUSS_UIO_MAP_OFFSET_PRUSS);
 
     prussdrv.pru1dataram_base =
         prussdrv.pru0dataram_base + (DATARAM1_PHYS_BASE -
@@ -134,7 +133,7 @@ int __prussdrv_memmap_init(void)
 
     prussdrv.l3ram_base =
         mmap(0, l3ram_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-             prussdrv.mmap_fd, l3ram_phys_base);
+             prussdrv.mmap_fd, PRUSS_UIO_MAP_OFFSET_L3RAM);
 
     fd = open(PRUSS_UIO_DRV_EXTRAM_BASE, O_RDONLY);
     if (fd >= 0) {
@@ -143,7 +142,6 @@ int __prussdrv_memmap_init(void)
         close(fd);
     } else
         return -1;
-
 
     fd = open(PRUSS_UIO_DRV_EXTRAM_SIZE, O_RDONLY);
     if (fd >= 0) {
@@ -156,7 +154,7 @@ int __prussdrv_memmap_init(void)
 
     prussdrv.extram_base =
         mmap(0, extram_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-             prussdrv.mmap_fd, extram_phys_base);
+             prussdrv.mmap_fd, PRUSS_UIO_MAP_OFFSET_EXTRAM);
 
     return 0;
 
@@ -314,9 +312,11 @@ int prussdrv_pruintc_init(tpruss_intc_initdata * prussintc_init_data)
     pruintc_io[PRU_INTC_ESR2_REG >> 2] = mask2;
     pruintc_io[PRU_INTC_SECR2_REG >> 2] = mask2;
 
-    pruintc_io[PRU_INTC_HIER_REG >> 2] =
-        (prussintc_init_data->host_enable_bitmask) & 0x3FF;
-
+    for (i=0; i < MAX_HOSTS_SUPPORTED; i++)
+      if (prussintc_init_data->host_enable_bitmask & (1 << i)) {
+         pruintc_io[PRU_INTC_HIEISR_REG >> 2] = i;      
+      }
+         
     pruintc_io[PRU_INTC_GER_REG >> 2] = 0x1;
 
     return 0;
@@ -326,9 +326,7 @@ int prussdrv_pruintc_init(tpruss_intc_initdata * prussintc_init_data)
 int prussdrv_pru_send_event(unsigned int eventnum)
 {
     unsigned int *pruintc_io = (unsigned int *) prussdrv.intc_base;
-    // pthread_mutex_lock (&prussdrv_send_event_mutex);
     pruintc_io[PRU_INTC_SRSR2_REG >> 2] = 1 << (eventnum - 32);
-    //pthread_mutex_unlock (&prussdrv_send_event_mutex);
     return 0;
 }
 
@@ -342,9 +340,7 @@ int prussdrv_pru_wait_event(unsigned int pru_evtout_num)
 int prussdrv_pru_clear_event(unsigned int eventnum)
 {
     unsigned int *pruintc_io = (unsigned int *) prussdrv.intc_base;
-    //pthread_mutex_lock (&prussdrv_clear_event_mutex);
     pruintc_io[PRU_INTC_SECR2_REG >> 2] = 1 << (eventnum - 32);
-    //pthread_mutex_unlock (&prussdrv_clear_event_mutex);
     return 0;
 }
 

@@ -61,8 +61,9 @@
 
 #include <linux/unistd.h>
 
+#define	PAGE_SIZE                       4096
 #define PRUSS_IRAM_SIZE                 4096
-#define PRUSS_DATARAM_SIZE	            512
+#define PRUSS_DATARAM_SIZE              512
 
 #define DATARAM0_PHYS_BASE            0x01C30000
 #define DATARAM1_PHYS_BASE            0x01C32000
@@ -75,10 +76,10 @@
 #define PRU1IRAM_PHYS_BASE            0x01C3C000
 //NOTE: Above defines are SOC specific
 
-#define PRU_INTC_REVID_REG  0x000
-#define PRU_INTC_CR_REG  0x004
-#define PRU_INTC_HCR_REG  0x00C
-#define PRU_INTC_GER_REG    0x010
+#define PRU_INTC_REVID_REG   0x000
+#define PRU_INTC_CR_REG      0x004
+#define PRU_INTC_HCR_REG     0x00C
+#define PRU_INTC_GER_REG     0x010
 #define PRU_INTC_GNLR_REG    0x01C
 #define PRU_INTC_SISR_REG    0x020
 #define PRU_INTC_SICR_REG    0x024
@@ -86,19 +87,19 @@
 #define PRU_INTC_EICR_REG    0x02C
 #define PRU_INTC_HIEISR_REG  0x034
 #define PRU_INTC_HIDISR_REG  0x038
-#define PRU_INTC_GPIR_REG  0x080
+#define PRU_INTC_GPIR_REG    0x080
 
-#define PRU_INTC_SRSR1_REG  0x200
-#define PRU_INTC_SRSR2_REG  0x204
+#define PRU_INTC_SRSR1_REG   0x200
+#define PRU_INTC_SRSR2_REG   0x204
 
-#define PRU_INTC_SECR1_REG  0x280
-#define PRU_INTC_SECR2_REG  0x284
+#define PRU_INTC_SECR1_REG   0x280
+#define PRU_INTC_SECR2_REG   0x284
 
-#define PRU_INTC_ESR1_REG  0x300
-#define PRU_INTC_ESR2_REG  0x304
+#define PRU_INTC_ESR1_REG    0x300
+#define PRU_INTC_ESR2_REG    0x304
 
-#define PRU_INTC_ECR1_REG  0x380
-#define PRU_INTC_ECR2_REG  0x384
+#define PRU_INTC_ECR1_REG    0x380
+#define PRU_INTC_ECR2_REG    0x384
 
 #define PRU_INTC_CMR1_REG    0x400
 #define PRU_INTC_CMR2_REG    0x404
@@ -111,31 +112,39 @@
 #define PRU_INTC_CMR9_REG    0x420
 #define PRU_INTC_CMR10_REG   0x424
 #define PRU_INTC_CMR11_REG   0x428
-#define PRU_INTC_CMR12_REG    0x42C
-#define PRU_INTC_CMR13_REG    0x430
-#define PRU_INTC_CMR14_REG    0x434
-#define PRU_INTC_CMR15_REG    0x438
-#define PRU_INTC_CMR16_REG    0x43C
+#define PRU_INTC_CMR12_REG   0x42C
+#define PRU_INTC_CMR13_REG   0x430
+#define PRU_INTC_CMR14_REG   0x434
+#define PRU_INTC_CMR15_REG   0x438
+#define PRU_INTC_CMR16_REG   0x43C
 
 #define PRU_INTC_HMR1_REG    0x800
 #define PRU_INTC_HMR2_REG    0x804
 #define PRU_INTC_HMR3_REG    0x808
 
-#define PRU_INTC_SIPR1_REG    0xD00
-#define PRU_INTC_SIPR2_REG    0xD04
+#define PRU_INTC_SIPR1_REG   0xD00
+#define PRU_INTC_SIPR2_REG   0xD04
 
-#define PRU_INTC_SITR1_REG    0xD80
-#define PRU_INTC_SITR2_REG    0xD84
+#define PRU_INTC_SITR1_REG   0xD80
+#define PRU_INTC_SITR2_REG   0xD84
 
-#define PRU_INTC_HIER_REG    	0x1500
+#define PRU_INTC_HIER_REG    0x1500
 
 
+#define MAX_HOSTS_SUPPORTED	10
+
+//UIO driver expects user space to map PRUSS_UIO_MAP_OFFSET_XXX to 
+//access corresponding memory regions - region offset is N*PAGE_SIZE
+
+#define PRUSS_UIO_MAP_OFFSET_PRUSS 0*PAGE_SIZE 
 #define PRUSS_UIO_DRV_PRUSS_BASE "/sys/class/uio/uio0/maps/map0/addr"
 #define PRUSS_UIO_DRV_PRUSS_SIZE "/sys/class/uio/uio0/maps/map0/size"
 
+#define PRUSS_UIO_MAP_OFFSET_L3RAM 1*PAGE_SIZE
 #define PRUSS_UIO_DRV_L3RAM_BASE "/sys/class/uio/uio0/maps/map1/addr"
 #define PRUSS_UIO_DRV_L3RAM_SIZE "/sys/class/uio/uio0/maps/map1/size"
 
+#define PRUSS_UIO_MAP_OFFSET_EXTRAM 2*PAGE_SIZE
 #define PRUSS_UIO_DRV_EXTRAM_BASE "/sys/class/uio/uio0/maps/map2/addr"
 #define PRUSS_UIO_DRV_EXTRAM_SIZE "/sys/class/uio/uio0/maps/map2/size"
 
