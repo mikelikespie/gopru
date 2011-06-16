@@ -80,7 +80,7 @@ static int open(struct inode *inode, struct file *filp);
 static int release(struct inode *inode, struct file *filp);
 static struct file_operations edma_fxns = {
     .owner = THIS_MODULE,
-  ioctl:ioctl,
+  unlocked_ioctl:ioctl,
 //mmap:mmap,
   open:open,
   release:release
