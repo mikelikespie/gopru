@@ -1,4 +1,4 @@
-CC=arm-none-linux-gnueabi-gcc
+CCTOOLS?=arm-none-linux-gnueabi-gcc
 
 LIBDIR_APP_LOADER?=../../app_loader/lib
 INCDIR_APP_LOADER?=../../app_loader/include
@@ -18,10 +18,10 @@ OBJ = $(patsubst %,$(OBJDIR)/%,$(_OBJ))
 
 $(OBJDIR)/%.o: %.c $(DEPS)
 	@mkdir -p obj
-	$(CC) $(CFLAGS) -c -o $@ $< 
+	$(CCTOOLS) $(CFLAGS) -c -o $@ $< 
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CCTOOLS) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 .PHONY: clean
 

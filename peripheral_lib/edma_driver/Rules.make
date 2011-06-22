@@ -1,4 +1,4 @@
-CSTOOL_PREFIX=arm-none-linux-gnueabi-
+CCTOOL_PREFIX?=arm-none-linux-gnueabi-
 
 # The directory that points to your kernel source directory. This is used
 # for building the cmemk.ko kernel module, as the kernel's build system

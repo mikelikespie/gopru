@@ -3,8 +3,8 @@ TARGET = libedmautils
 
 include $(ROOTDIR)/Rules.make
 
-CC = $(CSTOOL_PREFIX)gcc
-AR = $(CSTOOL_PREFIX)ar
+CC = $(CCTOOL_PREFIX)gcc
+AR = $(CCTOOL_PREFIX)ar
 
 INCLUDEDIR = ../include
 LIBDIR	   = ../lib

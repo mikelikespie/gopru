@@ -1,5 +1,6 @@
 -include DIRS
 
+CC?=arm-none-linux-gnueabi-gcc
 LIBDIR_APP_LOADER?=../../app_loader/lib
 LIBDIR_EDMA_DRIVER?=../../peripheral_lib/edma_driver/lib/
 INCDIR_APP_LOADER?=../../app_loader/include
@@ -12,7 +13,7 @@ all:
 # Make PRU example applications
 	mkdir -p bin
 
-	for dir in $(APP_DIRS); do make -C $$dir LIBDIR_APP_LOADER="${LIBDIR_APP_LOADER}" LIBDIR_EDMA_DRIVER="${LIBDIR_EDMA_DRIVER}" INCDIR_APP_LOADER="${INCDIR_APP_LOADER}" INCDIR_EDMA_DRIVER="${INCDIR_EDMA_DRIVER}" BINDIR="${BINDIR_APPLICATIONS}"; done
+	for dir in $(APP_DIRS); do make -C $$dir CC="${CC}" LIBDIR_APP_LOADER="${LIBDIR_APP_LOADER}" LIBDIR_EDMA_DRIVER="${LIBDIR_EDMA_DRIVER}" INCDIR_APP_LOADER="${INCDIR_APP_LOADER}" INCDIR_EDMA_DRIVER="${INCDIR_EDMA_DRIVER}" BINDIR="${BINDIR_APPLICATIONS}"; done
 
 # Pass PRU assembly code for each example through assembler
 	for a_file in ${ASSEM_FILES} ; \
