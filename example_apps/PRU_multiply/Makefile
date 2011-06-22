@@ -1,4 +1,4 @@
-CCTOOLS?=arm-none-linux-gnueabi-gcc
+CCTOOLS?=arm-arago-linux-gnueabi-gcc
 
 LIBDIR_APP_LOADER?=../../app_loader/lib
 INCDIR_APP_LOADER?=../../app_loader/include

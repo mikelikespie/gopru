@@ -1,4 +1,4 @@
-CCTOOLS?=arm-none-linux-gnueabi-gcc
+CCTOOLS?=arm-arago-linux-gnueabi-gcc
 
 LIBDIR_APP_LOADER?=../../app_loader/lib
 LIBDIR_EDMA_DRIVER?=../../peripheral_lib/edma_driver/lib/

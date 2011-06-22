@@ -1,6 +1,6 @@
 ROOTDIR = ..
 TARGET = libprussdrv
-CCTOOL_PREFIX?=arm-none-linux-gnueabi-
+CCTOOL_PREFIX?=arm-arago-linux-gnueabi-
 
 
 CC = $(CCTOOL_PREFIX)gcc

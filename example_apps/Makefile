@@ -1,6 +1,6 @@
 -include DIRS
 
-CC?=arm-none-linux-gnueabi-gcc
+CC?=arm-arago-linux-gnueabi-gcc
 LIBDIR_APP_LOADER?=../../app_loader/lib
 LIBDIR_EDMA_DRIVER?=../../peripheral_lib/edma_driver/lib/
 INCDIR_APP_LOADER?=../../app_loader/include
