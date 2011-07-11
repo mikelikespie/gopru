@@ -333,8 +333,10 @@ int prussdrv_pru_send_event(unsigned int eventnum)
 int prussdrv_pru_wait_event(unsigned int pru_evtout_num)
 {
     int event_count;
-    return (read(prussdrv.fd[pru_evtout_num], &event_count, sizeof(int)));
-
+    unsigned int *pruintc_io = (unsigned int *) prussdrv.intc_base;
+    read(prussdrv.fd[pru_evtout_num], &event_count, sizeof(int));
+    pruintc_io[PRU_INTC_HIEISR_REG >> 2] = pru_evtout_num+2;
+    return 0;
 }
 
 int prussdrv_pru_clear_event(unsigned int eventnum)
