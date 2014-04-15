@@ -11,22 +11,20 @@ func TestPruss(t *testing.T) {
 		t.Fatal("Error initializing:", err)
 	}
 
-	// Open up 
-	if err =drv.OpenInterrupt(PRU_EVTOUT_0); err != nil {
-		if err != nil {
-			t.Fatal("Error opening interrupt:", err)
-		}
+	// Open up
+	if _, err = drv.OpenInterrupt(PRU_EVTOUT_0); err != nil {
+		t.Fatal("Error opening interrupt:", err)
 	}
 
-	for i = 0; i < 2; i++ {
+	for i := 0; i < 2; i++ {
 		pru := drv.Pru(i)
-		if  err = pru.Enable(); err != nil {
+		if err = pru.Enable(); err != nil {
 			t.Fatal("Error enabling pru", i, ":", err)
 		}
-		if  err = pru.Disable(); err != nil {
+		if err = pru.Disable(); err != nil {
 			t.Fatal("Error disabling pru", i, ":", err)
 		}
-		if  err = pru.Reset(); err != nil {
+		if err = pru.Reset(); err != nil {
 			t.Fatal("Error resetting pru", i, ":", err)
 		}
 	}

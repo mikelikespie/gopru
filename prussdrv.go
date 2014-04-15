@@ -75,6 +75,7 @@ func InitDrv() (drv PrussDrv, err error) {
 			prussPru{pruNum: 1},
 		},
 		evtFiles: make(map[EvtOut]*os.File),
+		evtChans: make(map[EvtOut] chan int),
 	}
 
 	return
@@ -210,12 +211,10 @@ func (d *prussDrv) memmapInit() (err error) {
 	return
 }
 
-func (d *prussDrv) consumeEvents(evtOut EvtOut) {
+func (d *prussDrv) consumeEvents(evtOut EvtOut, c chan int, f *os.File) {
 	buf := make([]byte, 4)
 
 	numEventsBuff := (*uint32)(unsafe.Pointer(&buf[0]))
-	f := d.evtFiles[evtOut]
-	c := d.evtChans[evtOut]
 
 	for {
 		n, err := f.Read(buf)
@@ -247,13 +246,14 @@ func (d *prussDrv) OpenInterrupt(evtOut EvtOut) (intcChan chan int, err error) {
 		0600,
 	)
 
-	d.evtChans[evtOut] = make(chan int)
-
-	go d.consumeEvents(evtOut)
 
 	if err != nil {
 		return
 	}
+
+	d.evtChans[evtOut] = make(chan int)
+
+	go d.consumeEvents(evtOut, d.evtChans[evtOut], d.evtFiles[evtOut])
 
 	// We initialize memmap stuff here since it uses it
 	if d.mmapFdFile == nil {
