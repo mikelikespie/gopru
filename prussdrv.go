@@ -1,8 +1,15 @@
 package pruss
 
-import "C"
-import "os"
-import "syscall"
+import (
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"strconv"
+	"strings"
+	"syscall"
+	"unsafe"
+)
 
 type PruRamId int
 type EvtOut int
@@ -33,52 +40,69 @@ type PruRamType int
 const (
 	DATARAM PruRamType = 0
 	IRAM    PruRamType = iota
+	// This is shared between both PRUs
+	SHARED PruRamType = iota
 )
 
 type SysevtToChannelMap map[int16]int16
 type ChannelToHostMap map[int16]int16
 
 type Pru interface {
-	Reset() (err error)
-	Enable() (err error)
-	Disable() (err error)
-	WriteMemory(ramType PruRamType, writeOffset uint, sourceData []byte) (err error)
-	ExecProgram(filename string) (err error)
-
-	SendEvent(evtOutNum EvtOut)
-	WaitEvent(uint eventNum)
-	ClearEvent(uint eventNum)
-	SendWaitClearEvent(sendEventNum uint, evtOutNum EvtOut, ackEventNum uint)
+	Reset() error
+	Enable() error
+	Disable() error
+	WriteMemory(ramType PruRamType, writeOffset uint, sourceData []byte) error
+	ExecProgram(filename string) error
 }
 
 type PrussDrv interface {
-	Open(pruEvtoutNum int) (err error)
-	GetPru(pruNum int) (pru Pru)
+	OpenInterrupt(evtOut EvtOut) (intcChan chan int, err error)
+
+	Pru(pruNum int) (pru Pru)
 	InitInterrupts() (err error)
+
 	Close() (err error)
+
+	SendEvent(eventNum uint) error
+	ClearEvent(eventNum uint) error
 }
 
 func InitDrv() (drv PrussDrv, err error) {
+	drv = &prussDrv{
+		initData: DefaultInitData,
+		prus: []prussPru{
+			prussPru{pruNum: 0},
+			prussPru{pruNum: 1},
+		},
+		evtFiles: make(map[EvtOut]*os.File),
+	}
 
+	return
 }
 
 type prussPru struct {
-	drv *prussDrv
-
-	dataramBase []byte
-	controlBase []byte
-	debugBase   []byte
-	iramBase    []byte
-
+	drv           *prussDrv
+	pruNum        int
+	dataramBase   []byte
+	controlBase   []byte
+	debugBase     []byte
+	iramBase      []byte
+	sharedramBase []byte
 }
 
 type prussDrv struct {
-	prus []prussPru
+	initData PruIntcInitData
+	prus     []prussPru
 
 	// Files for interrups
 	evtFiles map[EvtOut]*os.File
+	evtChans map[EvtOut]chan int
 
 	mmapFdFile *os.File
+
+	physBase       uint64
+	l3RamPhysBase  uint64
+	extRamPhysBase uint64
 
 	// mmapped files
 	intcBase   []byte
@@ -86,15 +110,162 @@ type prussDrv struct {
 	extRamBase []byte
 }
 
-func (d *prussDrv) memmapInit() (err error) {
+func readIntFromFile(fileName string) (num uint64, err error) {
+	c, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return 0, err
+	}
+
+	return strconv.ParseUint(strings.TrimSpace(string(c[2:])), 16, 32)
 }
 
-func (d *prussDrv) Open(pruEvtoutNum int) (err error) {
+func (d *prussDrv) rambaseOffset(physBase int) []byte {
+	offset := physBase - DATARAM0_PHYS_BASE
+	ramBase := d.prus[0].dataramBase
+	return ramBase[offset : len(ramBase)-offset]
+}
+
+func (d *prussDrv) memmapInit() (err error) {
+
+	// Get the first one
+	for _, d.mmapFdFile = range d.evtFiles {
+		break
+	}
+
+	if d.mmapFdFile == nil {
+		panic("We should have an fd by now")
+	}
+
+	d.physBase, err = readIntFromFile(PRUSS_UIO_DRV_PRUSS_BASE)
+	if err != nil {
+		return err
+	}
+
+	prussMapSize, err := readIntFromFile(PRUSS_UIO_DRV_PRUSS_SIZE)
+	if err != nil {
+		return err
+	}
+	return
+
+	d.prus[0].dataramBase, err = syscall.Mmap(
+		int(d.mmapFdFile.Fd()),
+		int64(PRUSS_UIO_MAP_OFFSET_PRUSS),
+		int(prussMapSize),
+		syscall.PROT_READ|syscall.PROT_WRITE,
+		syscall.MAP_SHARED,
+	)
+	if err != nil {
+		return err
+	}
+
+	d.prus[1].dataramBase = d.rambaseOffset(DATARAM1_PHYS_BASE)
+
+	d.intcBase = d.rambaseOffset(INTC_PHYS_BASE)
+
+	sharedBase := d.rambaseOffset(PRUSS_SHAREDRAM_BASE)
+	d.prus[0].sharedramBase = sharedBase
+	d.prus[1].sharedramBase = sharedBase
+
+	d.prus[0].controlBase = d.rambaseOffset(PRU0CONTROL_PHYS_BASE)
+	d.prus[1].controlBase = d.rambaseOffset(PRU1CONTROL_PHYS_BASE)
+
+	d.prus[0].debugBase = d.rambaseOffset(PRU0DEBUG_PHYS_BASE)
+	d.prus[1].debugBase = d.rambaseOffset(PRU1DEBUG_PHYS_BASE)
+
+	d.prus[0].iramBase = d.rambaseOffset(PRU0IRAM_PHYS_BASE)
+	d.prus[1].iramBase = d.rambaseOffset(PRU1IRAM_PHYS_BASE)
+
+	d.l3RamPhysBase, err = readIntFromFile(PRUSS_UIO_DRV_L3RAM_BASE)
+	if err != nil {
+		return err
+	}
+	l3RamMapSize, err := readIntFromFile(PRUSS_UIO_DRV_L3RAM_SIZE)
+	if err != nil {
+		return err
+	}
+	d.l3RamBase, err = syscall.Mmap(
+		int(d.mmapFdFile.Fd()),
+		int64(PRUSS_UIO_MAP_OFFSET_L3RAM),
+		int(l3RamMapSize),
+		syscall.PROT_READ|syscall.PROT_WRITE,
+		syscall.MAP_SHARED,
+	)
+
+	d.extRamPhysBase, err = readIntFromFile(PRUSS_UIO_DRV_EXTRAM_BASE)
+	if err != nil {
+		return err
+	}
+	extRamMapSize, err := readIntFromFile(PRUSS_UIO_DRV_EXTRAM_SIZE)
+	if err != nil {
+		return err
+	}
+	d.extRamBase, err = syscall.Mmap(
+		int(d.mmapFdFile.Fd()),
+		int64(PRUSS_UIO_MAP_OFFSET_EXTRAM),
+		int(extRamMapSize),
+		syscall.PROT_READ|syscall.PROT_WRITE,
+		syscall.MAP_SHARED,
+	)
+
 	return
 }
 
-func (d *prussDrv) GetPru(pruNum int) (pru Pru) {
-	return d.prus[0]
+func (d *prussDrv) consumeEvents(evtOut EvtOut) {
+	buf := make([]byte, 4)
+
+	numEventsBuff := (*uint32)(unsafe.Pointer(&buf[0]))
+	f := d.evtFiles[evtOut]
+	c := d.evtChans[evtOut]
+
+	for {
+		n, err := f.Read(buf)
+		switch {
+		case err == nil && n == len(buf):
+			c <- int(*numEventsBuff)
+			*(*uint32)(unsafe.Pointer(&d.intcBase[PRU_INTC_HIEISR_REG])) = uint32(evtOut) + 2
+		case err == io.EOF:
+			break
+		case n != len(buf):
+			panic("read bytes not as long as buff.  don't know what to do :(")
+
+		default:
+			panic("error closing stream")
+		}
+	}
+
+	close(c)
+}
+
+func (d *prussDrv) OpenInterrupt(evtOut EvtOut) (intcChan chan int, err error) {
+	if chn, found := d.evtChans[evtOut]; found {
+		return chn, nil
+	}
+
+	d.evtFiles[evtOut], err = os.OpenFile(
+		"/dev/uio"+strconv.Itoa(int(evtOut)),
+		os.O_SYNC|os.O_RDWR,
+		0600,
+	)
+
+	d.evtChans[evtOut] = make(chan int)
+
+	go d.consumeEvents(evtOut)
+
+	if err != nil {
+		return
+	}
+
+	// We initialize memmap stuff here since it uses it
+	if d.mmapFdFile == nil {
+		if err = d.memmapInit(); err != nil {
+			return nil, err
+		}
+	}
+	return
+}
+
+func (d *prussDrv) Pru(pruNum int) (pru Pru) {
+	return &d.prus[0]
 }
 
 func (d *prussDrv) InitInterrupts() (err error) {
@@ -109,81 +280,114 @@ func clearAndMunmap(v *[]byte) {
 }
 
 func (d *prussDrv) Close() (err error) {
-	clearAndMunmap(&d.intcBase)
+	clearAndMunmap(&d.prus[0].dataramBase)
+	d.intcBase = nil
 	clearAndMunmap(&d.l3RamBase)
 	clearAndMunmap(&d.extRamBase)
 
 	for _, pru := range d.prus {
-		clearAndMunmap(&pru.controlBase)
-		clearAndMunmap(&pru.dataramBase)
-		clearAndMunmap(&pru.debugBase)
-		clearAndMunmap(&pru.iramBase)
+		pru.controlBase = nil
+		pru.dataramBase = nil
+		pru.debugBase = nil
+		pru.iramBase = nil
 	}
 
-	for i, f := range d.evtFiles {
+	for k, f := range d.evtFiles {
 		f.Close()
-		delete(d.evtFiles, i)
+		for _ = range d.evtChans[k] {
+		}
+		delete(d.evtFiles, k)
+		delete(d.evtChans, k)
 	}
 
-	if (d.mmapFdFile != nil) {
-		d.mmapFdFile.Close()
-		d.mmapFdFile = nil
-	}
+	d.mmapFdFile = nil
 
 	return
 }
 
-func (p *prussPru) Reset() (err error)   { return }
-func (p *prussPru) Enable() (err error)  { return }
-func (p *prussPru) Disable() (err error) { return }
+func (p *prussPru) Enable() (err error) {
+	*(*uint32)(unsafe.Pointer(&p.controlBase[0])) = 2
+	return
+}
+
+func (p *prussPru) Reset() (err error) {
+	*(*uint32)(unsafe.Pointer(&p.controlBase[0])) = 0
+	return
+}
+func (p *prussPru) Disable() (err error) {
+	*(*uint32)(unsafe.Pointer(&p.controlBase[0])) = 1
+	return
+}
+
 func (p *prussPru) WriteMemory(ramType PruRamType, writeOffset uint, sourceData []byte) (err error) {
+	var memory []byte
+	switch ramType {
+	case IRAM:
+		memory = p.iramBase
+	case DATARAM:
+		memory = p.dataramBase
+	case SHARED:
+		memory = p.sharedramBase
+	}
+
+	copy(memory[writeOffset:], sourceData)
+
 	return
 }
-func (p *prussPru) ExecProgram(filename string) (err error) { return }
 
-func (p *prussPru) SendEvent(evtOutNum EvtOut)                                               { return }
-func (p *prussPru) WaitEvent(uint eventNum)                                                  { return }
-func (p *prussPru) ClearEvent(uint eventNum)                                                 { return }
-func (p *prussPru) SendWaitClearEvent(sendEventNum uint, evtOutNum EvtOut, ackEventNum uint) { return }
+func (p *prussPru) ExecProgram(filename string) (err error) {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return
+	}
 
-/*
+	if len(b) >= PRUSS_IRAM_SIZE {
+		err = fmt.Errorf("Image size (%d) from (%s) exceeds max iram size (%d)", len(b), filename, PRUSS_IRAM_SIZE)
+		return
+	}
 
-   int prussdrv_open(unsigned int pru_evtout_num);
+	if err = p.Disable(); err != nil {
+		return
+	}
 
-   int prussdrv_pru_reset(unsigned int prunum);
+	if err = p.WriteMemory(IRAM, 0, b); err != nil {
+		return
+	}
 
-   int prussdrv_pru_disable(unsigned int prunum);
+	return
+}
 
-   int prussdrv_pru_enable(unsigned int prunum);
+func (d *prussDrv) SendEvent(eventNum uint) (err error) {
 
-   int prussdrv_pru_write_memory(unsigned int pru_ram_id,
-                                 unsigned int wordoffset,
-                                 unsigned int *memarea,
-                                 unsigned int bytelength);
+	var reg int
+	switch {
+	case eventNum < 32:
+		reg = PRU_INTC_SRSR1_REG
+	case eventNum < 64:
+		reg = PRU_INTC_SRSR2_REG
+		eventNum -= 32
+	default:
+		return fmt.Errorf("Invalid event num: %d", eventNum)
+	}
 
-   int prussdrv_pruintc_init(tpruss_intc_initdata * prussintc_init_data);
+	*(*uint32)(unsafe.Pointer(&d.intcBase[reg])) = uint32(eventNum)
 
-   int prussdrv_map_l3mem(void **address);
+	return
+}
 
-   int prussdrv_map_extmem(void **address);
+func (d *prussDrv) ClearEvent(eventNum uint) (err error) {
+	var reg int
+	switch {
+	case eventNum < 32:
+		reg = PRU_INTC_SECR1_REG
+	case eventNum < 64:
+		reg = PRU_INTC_SECR2_REG
+		eventNum -= 32
+	default:
+		return fmt.Errorf("Invalid event num: %d", eventNum)
+	}
 
-   int prussdrv_map_prumem(unsigned int pru_ram_id, void **address);
+	*(*uint32)(unsafe.Pointer(&d.intcBase[reg])) = uint32(eventNum)
 
-   unsigned int prussdrv_get_phys_addr(void *address);
-
-   void *prussdrv_get_virt_addr(unsigned int phyaddr);
-
-   int prussdrv_pru_wait_event(unsigned int pru_evtout_num);
-
-   int prussdrv_pru_send_event(unsigned int eventnum);
-
-   int prussdrv_pru_clear_event(unsigned int eventnum);
-
-   int prussdrv_pru_send_wait_clear_event(unsigned int send_eventnum,
-                                          unsigned int pru_evtout_num,
-                                          unsigned int ack_eventnum);
-
-   int prussdrv_exit(void);
-
-   int prussdrv_exec_program(int prunum, char *filename);
-*/
+	return
+}
