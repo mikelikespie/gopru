@@ -211,7 +211,7 @@ func (d *prussDrv) memmapInit() (err error) {
 	d.prus[0].controlBasePtr = (*uint32)(unsafe.Pointer(&d.prus[0].controlBase[0]))
 
 	d.prus[1].controlBase = d.rambaseOffset(PRU1CONTROL_PHYS_BASE)
-	d.prus[1].controlBasePtr = (*uint32)(unsafe.Pointer(&d.prus[1].controlBase[1]))
+	d.prus[1].controlBasePtr = (*uint32)(unsafe.Pointer(&d.prus[1].controlBase[0]))
 
 	d.prus[0].debugBase = d.rambaseOffset(PRU0DEBUG_PHYS_BASE)
 	d.prus[1].debugBase = d.rambaseOffset(PRU1DEBUG_PHYS_BASE)

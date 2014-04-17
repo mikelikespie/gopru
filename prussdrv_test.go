@@ -93,7 +93,8 @@ func TestPruss(t *testing.T) {
 			t.Fatal("Error executing image", i, ":", err)
 		}
 
-		listeners[i].Wait()
+		ret := listeners[i].Wait()
+		t.Log("Return val:", ret)
 		listeners[i].ClearEvent([]EventNum{PRU0_ARM_INTERRUPT, PRU1_ARM_INTERRUPT}[i])
 	}
 }
