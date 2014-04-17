@@ -6,7 +6,14 @@ Pure go implementation of pru app loader for beaglebone black.
 
 The quality of this code is hacked at best (at the moment).  See `prussdrv_test.go` for usage.
 
+gopru is licensed under the two-clause BSD license.  See `LICENSE.txt`.
+
 
 pasm wrapper
 ------------
-the `pasm` directory contains a port of the pasm assembler (from [https://github.com/beagleboard/am335x_pru_package/tree/master/pru_sw/utils/pasm_source](here)).  It is modified to be callable via cgo.  This allows for testing to be much easier for gopru.  (see `prussdrv_test.go` for example)
+the `pasm` directory contains a port of the pasm assembler (from
+[https://github.com/beagleboard/am335x_pru_package/tree/master/pru_sw/utils/pasm_source](here)).
+It is modified to be callable via cgo.  This allows for testing to be much
+easier for gopru.  (see `prussdrv_test.go` for example)
+
+pasm's license can be found in `pasm/LICENSE.txt`
