@@ -1,45 +1,45 @@
 package pruss
 
 const (
-	PRU0_PRU1_INTERRUPT = 32
-	PRU1_PRU0_INTERRUPT = 33
-	PRU0_ARM_INTERRUPT  = 34
-	PRU1_ARM_INTERRUPT  = 35
-	ARM_PRU0_INTERRUPT  = 36
-	ARM_PRU1_INTERRUPT  = 37
+	PRU0_PRU1_INTERRUPT EventNum = 17
+	PRU1_PRU0_INTERRUPT EventNum = 18
+	PRU0_ARM_INTERRUPT  EventNum = 19
+	PRU1_ARM_INTERRUPT  EventNum = 20
+	ARM_PRU0_INTERRUPT  EventNum = 21
+	ARM_PRU1_INTERRUPT  EventNum = 22
 
-	CHANNEL0 = 0
-	CHANNEL1 = 1
-	CHANNEL2 = 2
-	CHANNEL3 = 3
-	CHANNEL4 = 4
-	CHANNEL5 = 5
-	CHANNEL6 = 6
-	CHANNEL7 = 7
-	CHANNEL8 = 8
-	CHANNEL9 = 9
+	CHANNEL0 Channel = 0
+	CHANNEL1 Channel = 1
+	CHANNEL2 Channel = 2
+	CHANNEL3 Channel = 3
+	CHANNEL4 Channel = 4
+	CHANNEL5 Channel = 5
+	CHANNEL6 Channel = 6
+	CHANNEL7 Channel = 7
+	CHANNEL8 Channel = 8
+	CHANNEL9 Channel = 9
 
-	PRU0        = 0
-	PRU1        = 1
-	PRU_EVTOUT0 = 2
-	PRU_EVTOUT1 = 3
-	PRU_EVTOUT2 = 4
-	PRU_EVTOUT3 = 5
-	PRU_EVTOUT4 = 6
-	PRU_EVTOUT5 = 7
-	PRU_EVTOUT6 = 8
-	PRU_EVTOUT7 = 9
+	PRU0        Host = 0
+	PRU1        Host = 1
+	PRU_EVTOUT0 Host = 2
+	PRU_EVTOUT1 Host = 3
+	PRU_EVTOUT2 Host = 4
+	PRU_EVTOUT3 Host = 5
+	PRU_EVTOUT4 Host = 6
+	PRU_EVTOUT5 Host = 7
+	PRU_EVTOUT6 Host = 8
+	PRU_EVTOUT7 Host = 9
 )
 
 type PruIntcInitData struct {
-	SysevtsEnabled     []uint8
+	SysevtsEnabled     []EventNum
 	SysevtToChannelMap SysevtToChannelMap
 	ChannelToHostMap   ChannelToHostMap
-	HostEnabled        []uint8
+	HostEnabled        []Host
 }
 
 var DefaultInitData = PruIntcInitData{
-	SysevtsEnabled: []uint8{
+	SysevtsEnabled: []EventNum{
 		PRU0_PRU1_INTERRUPT,
 		PRU1_PRU0_INTERRUPT,
 		PRU0_ARM_INTERRUPT,
@@ -61,7 +61,7 @@ var DefaultInitData = PruIntcInitData{
 		CHANNEL2: PRU_EVTOUT0,
 		CHANNEL3: PRU_EVTOUT1,
 	},
-	HostEnabled: []uint8{
+	HostEnabled: []Host{
 		PRU0,
 		PRU1,
 		PRU_EVTOUT0,

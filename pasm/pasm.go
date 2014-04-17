@@ -13,7 +13,7 @@ import "C"
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
+	"os"
 	"path"
 	"sync"
 )
@@ -48,6 +48,15 @@ func setCore(core uint) {
 // Pasm uses globals.  We have to have a mutex on this
 var lock sync.Mutex
 
+// Panics if there's an error.  Useful for consts, etc
+func ForceAssemble(assembly string) (image []byte) {
+	image, err := Assemble(assembly)
+	if err != nil {
+		panic(err)
+	}
+	return image
+}
+
 func Assemble(assembly string) (image []byte, err error) {
 	lock.Lock()
 	defer lock.Unlock()
@@ -58,8 +67,7 @@ func Assemble(assembly string) (image []byte, err error) {
 	if err != nil {
 		panic("Could not create temp directory")
 	}
-
-	log.Println(dir)
+	defer os.RemoveAll(dir)
 
 	baseFile := path.Join(dir, "assembly")
 

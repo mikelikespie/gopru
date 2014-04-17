@@ -45,8 +45,11 @@ const (
 	SHARED PruRamType = iota
 )
 
-type SysevtToChannelMap map[uint16]uint16
-type ChannelToHostMap map[uint16]uint16
+type Channel uint16
+type Host uint16
+type EventNum uint16
+type SysevtToChannelMap map[EventNum]Channel
+type ChannelToHostMap map[Channel]Host
 
 const enableL3ram = false
 
@@ -56,6 +59,7 @@ type Pru interface {
 	Disable() error
 	WriteMemory(ramType PruRamType, writeOffset uint, sourceData []byte) error
 	ExecProgram(filename string) error
+	ExecImage(image []byte) error
 }
 
 type PrussDrv interface {
@@ -66,8 +70,7 @@ type PrussDrv interface {
 
 	Close() (err error)
 
-	SendEvent(eventNum uint) error
-	ClearEvent(eventNum uint) error
+	SendEvent(eventNum EventNum) error
 }
 
 func InitDrv() (drv PrussDrv, err error) {
@@ -84,13 +87,15 @@ func InitDrv() (drv PrussDrv, err error) {
 }
 
 type prussPru struct {
-	drv           *prussDrv
-	pruNum        int
-	dataramBase   []byte
-	controlBase   []byte
-	debugBase     []byte
-	iramBase      []byte
-	sharedramBase []byte
+	drv         *prussDrv
+	pruNum      int
+	dataramBase []byte
+	controlBase []byte
+	// Remapped offset 0 of controlBase
+	controlBasePtr *uint32
+	debugBase      []byte
+	iramBase       []byte
+	sharedramBase  []byte
 }
 
 // Outer is for requests, inner is chan for responses
@@ -101,6 +106,8 @@ type EventListener interface {
 
 	// Blocks on enquing a wait task, but will return a channel that will receive an element after the wait is finished
 	WaitC() <-chan uint32
+
+	ClearEvent(eventNum EventNum) error
 }
 
 type eventListener struct {
@@ -201,7 +208,10 @@ func (d *prussDrv) memmapInit() (err error) {
 	d.prus[1].sharedramBase = sharedBase
 
 	d.prus[0].controlBase = d.rambaseOffset(PRU0CONTROL_PHYS_BASE)
+	d.prus[0].controlBasePtr = (*uint32)(unsafe.Pointer(&d.prus[0].controlBase[0]))
+
 	d.prus[1].controlBase = d.rambaseOffset(PRU1CONTROL_PHYS_BASE)
+	d.prus[1].controlBasePtr = (*uint32)(unsafe.Pointer(&d.prus[1].controlBase[1]))
 
 	d.prus[0].debugBase = d.rambaseOffset(PRU0DEBUG_PHYS_BASE)
 	d.prus[1].debugBase = d.rambaseOffset(PRU1DEBUG_PHYS_BASE)
@@ -290,28 +300,32 @@ func (d *prussDrv) Pru(pruNum int) (pru Pru) {
 // Returns an int pointer into the interrupt register offset by bytes
 func (d *prussDrv) intcOffsetInt(offsetBytes uint32, offsetInt int) *uint32 {
 	offset := int(offsetBytes) + offsetInt*int(unsafe.Sizeof(uint32(0)))
-	if offset + int(unsafe.Sizeof(uint32(0))) - 1 > len(d.intcBase) {
+	if offset+int(unsafe.Sizeof(uint32(0)))-1 > len(d.intcBase) {
 		log.Panicf("Invalid offset %d. Max size of intc is %d", offset, len(d.intcBase))
 	}
 	sPtr := &d.intcBase[offset]
 	return (*uint32)(unsafe.Pointer(sPtr))
 }
 
-func (d *prussDrv) intcSetCmr(sysevt uint16, channel uint16) {
-	offset := PRU_INTC_CMR1_REG + uint32(sysevt & ^(uint16(0x3)))
+func (d *prussDrv) intcSetCmr(sysevt EventNum, channel Channel) {
+	offset := PRU_INTC_CMR1_REG + uint32(uint16(sysevt) & ^(uint16(0x3)))
 	*d.intcOffsetInt(offset, 0) |= ((uint32(channel) & 0xF) << ((uint32(sysevt) & 0x3) << 3))
 }
 
-func (d *prussDrv) intcSetHmr(channel uint16, host uint16) {
-	offset := PRU_INTC_HMR1_REG + uint32(channel & ^(uint16(0x3)))
+func (d *prussDrv) intcSetHmr(channel Channel, host Host) {
+	offset := PRU_INTC_HMR1_REG + uint32(uint16(channel) & ^(uint16(0x3)))
 	*d.intcOffsetInt(offset, 0) |= ((uint32(host) & 0xF) << ((uint32(channel) & 0x3) << 3))
+}
+
+func (d *prussDrv) getHardwareVersion() (v uint32) {
+	return *d.intcOffsetInt(0, 0)
 }
 
 // This is a transliteration of pruss's prussdrv_pruintc_init.
 func (d *prussDrv) InitInterrupts() (err error) {
-	p := d.intcOffsetInt(PRU_INTC_SIPR1_REG, 0)
-	*p = 0xFFFFFFFF
+	*d.intcOffsetInt(PRU_INTC_SIPR1_REG, 0) = 0xFFFFFFFF
 	*d.intcOffsetInt(PRU_INTC_SIPR2_REG, 0) = 0xFFFFFFFF
+
 	for i := 0; i < NUM_PRU_SYS_EVTS; i++ {
 		*d.intcOffsetInt(PRU_INTC_CMR1_REG, i) = 0x0
 	}
@@ -338,7 +352,7 @@ func (d *prussDrv) InitInterrupts() (err error) {
 		case sysevt < 32:
 			mask1 |= 1 << sysevt
 		case sysevt < 64:
-			mask2 |= 1 << sysevt
+			mask2 |= 1 << (sysevt - 32)
 		default:
 			return fmt.Errorf("SYS_EVT%d out of range", sysevt)
 		}
@@ -358,6 +372,10 @@ func (d *prussDrv) InitInterrupts() (err error) {
 	}
 
 	*d.intcOffsetInt(PRU_INTC_GER_REG, 0) = 0x1
+
+	if d.getHardwareVersion() != 0x4E82A900 {
+		return fmt.Errorf("Unexpected hardware version")
+	}
 
 	return
 }
@@ -379,6 +397,7 @@ func (d *prussDrv) Close() (err error) {
 
 	for _, pru := range d.prus {
 		pru.controlBase = nil
+		pru.controlBasePtr = nil
 		pru.dataramBase = nil
 		pru.debugBase = nil
 		pru.iramBase = nil
@@ -395,16 +414,16 @@ func (d *prussDrv) Close() (err error) {
 }
 
 func (p *prussPru) Enable() (err error) {
-	*(*uint32)(unsafe.Pointer(&p.controlBase[0])) = 2
+	*p.controlBasePtr = 2
 	return
 }
 
 func (p *prussPru) Reset() (err error) {
-	*(*uint32)(unsafe.Pointer(&p.controlBase[0])) = 0
+	*p.controlBasePtr = 0
 	return
 }
 func (p *prussPru) Disable() (err error) {
-	*(*uint32)(unsafe.Pointer(&p.controlBase[0])) = 1
+	*p.controlBasePtr = 1
 	return
 }
 
@@ -424,59 +443,67 @@ func (p *prussPru) WriteMemory(ramType PruRamType, writeOffset uint, sourceData 
 	return
 }
 
-func (p *prussPru) ExecProgram(filename string) (err error) {
-	b, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return
-	}
-
-	if len(b) >= PRUSS_IRAM_SIZE {
-		err = fmt.Errorf("Image size (%d) from (%s) exceeds max iram size (%d)", len(b), filename, PRUSS_IRAM_SIZE)
-		return
-	}
+func (p *prussPru) ExecImage(image []byte) (err error) {
 
 	if err = p.Disable(); err != nil {
 		return
 	}
 
-	if err = p.WriteMemory(IRAM, 0, b); err != nil {
+	if err = p.WriteMemory(IRAM, 0, image); err != nil {
 		return
 	}
 
+	if err = p.Enable(); err != nil {
+		return
+	}
 	return
 }
 
-func (d *prussDrv) SendEvent(eventNum uint) (err error) {
+func (p *prussPru) ExecProgram(filename string) (err error) {
+	b, err := ioutil.ReadFile(filename)
 
-	var reg int
+	if err != nil {
+		return
+	}
+
+	if len(b) >= PRUSS_IRAM_SIZE {
+		err = fmt.Errorf(
+			"Image size (%d) from (%s) exceeds max iram size (%d)",
+			len(b),
+			filename,
+			PRUSS_IRAM_SIZE,
+		)
+		return
+	}
+
+	return p.ExecImage(b)
+}
+
+func (d *prussDrv) SendEvent(eventNum EventNum) (err error) {
+
 	switch {
 	case eventNum < 32:
-		reg = PRU_INTC_SRSR1_REG
+		*d.intcOffsetInt(PRU_INTC_SRSR1_REG, 0) = uint32(eventNum)
 	case eventNum < 64:
-		reg = PRU_INTC_SRSR2_REG
-		eventNum -= 32
+		*d.intcOffsetInt(PRU_INTC_SRSR2_REG, 0) = uint32(eventNum) - 32
+	default:
+		return fmt.Errorf("Invalid EventNum: %d", eventNum)
+	}
+
+	return
+}
+
+func (el *eventListener) ClearEvent(eventNum EventNum) (err error) {
+	switch {
+	case eventNum < 32:
+		*el.drv.intcOffsetInt(PRU_INTC_SECR1_REG, 0) = uint32(eventNum)
+	case eventNum < 64:
+		*el.drv.intcOffsetInt(PRU_INTC_SECR2_REG, 0) = uint32(eventNum) - 32
 	default:
 		return fmt.Errorf("Invalid event num: %d", eventNum)
 	}
 
-	*(*uint32)(unsafe.Pointer(&d.intcBase[reg])) = uint32(eventNum)
-
-	return
-}
-
-func (d *prussDrv) ClearEvent(eventNum uint) (err error) {
-	var reg int
-	switch {
-	case eventNum < 32:
-		reg = PRU_INTC_SECR1_REG
-	case eventNum < 64:
-		reg = PRU_INTC_SECR2_REG
-		eventNum -= 32
-	default:
-		return fmt.Errorf("Invalid event num: %d", eventNum)
-	}
-
-	*(*uint32)(unsafe.Pointer(&d.intcBase[reg])) = uint32(eventNum)
+	*el.drv.intcOffsetInt(PRU_INTC_HIEISR_REG, 0) = uint32(el.evt) + 2
 
 	return
 }
