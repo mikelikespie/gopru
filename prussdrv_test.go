@@ -2,6 +2,7 @@ package pruss
 
 import (
 	"testing"
+	"time"
 )
 
 func TestPruss(t *testing.T) {
@@ -15,6 +16,17 @@ func TestPruss(t *testing.T) {
 	if _, err = drv.OpenInterrupt(PRU_EVTOUT_0); err != nil {
 		t.Fatal("Error opening interrupt:", err)
 	}
+
+	if _, err = drv.OpenInterrupt(PRU_EVTOUT_1); err != nil {
+		t.Fatal("Error opening interrupt:", err)
+	}
+
+	if err = drv.InitInterrupts(); err != nil {
+		t.Fatal("Error initializing interrupts:", err)
+	}
+
+	// These take a small amount of time to start reading
+	time.Sleep(time.Millisecond)
 
 	for i := 0; i < 2; i++ {
 		pru := drv.Pru(i)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -44,8 +45,10 @@ const (
 	SHARED PruRamType = iota
 )
 
-type SysevtToChannelMap map[int16]int16
-type ChannelToHostMap map[int16]int16
+type SysevtToChannelMap map[uint16]uint16
+type ChannelToHostMap map[uint16]uint16
+
+const enableL3ram = false
 
 type Pru interface {
 	Reset() error
@@ -56,7 +59,7 @@ type Pru interface {
 }
 
 type PrussDrv interface {
-	OpenInterrupt(evtOut EvtOut) (intcChan chan int, err error)
+	OpenInterrupt(evtOut EvtOut) (l EventListener, err error)
 
 	Pru(pruNum int) (pru Pru)
 	InitInterrupts() (err error)
@@ -74,8 +77,7 @@ func InitDrv() (drv PrussDrv, err error) {
 			prussPru{pruNum: 0},
 			prussPru{pruNum: 1},
 		},
-		evtFiles: make(map[EvtOut]*os.File),
-		evtChans: make(map[EvtOut] chan int),
+		eventListeners: make(map[EvtOut]*eventListener),
 	}
 
 	return
@@ -91,13 +93,36 @@ type prussPru struct {
 	sharedramBase []byte
 }
 
+// Outer is for requests, inner is chan for responses
+
+type EventListener interface {
+	// Returns a channel that will yield true when we receive an event
+	Wait() uint32
+
+	// Blocks on enquing a wait task, but will return a channel that will receive an element after the wait is finished
+	WaitC() <-chan uint32
+}
+
+type eventListener struct {
+	f *os.File
+
+	drv *prussDrv
+
+	// Incoming wait requests
+	in chan bool
+
+	// Outgoing wait requests
+	out chan uint32
+
+	// Event out number
+	evt EvtOut
+}
+
 type prussDrv struct {
 	initData PruIntcInitData
 	prus     []prussPru
 
-	// Files for interrups
-	evtFiles map[EvtOut]*os.File
-	evtChans map[EvtOut]chan int
+	eventListeners map[EvtOut]*eventListener
 
 	mmapFdFile *os.File
 
@@ -123,13 +148,14 @@ func readIntFromFile(fileName string) (num uint64, err error) {
 func (d *prussDrv) rambaseOffset(physBase int) []byte {
 	offset := physBase - DATARAM0_PHYS_BASE
 	ramBase := d.prus[0].dataramBase
-	return ramBase[offset : len(ramBase)-offset]
+	return ramBase[offset:]
 }
 
 func (d *prussDrv) memmapInit() (err error) {
 
 	// Get the first one
-	for _, d.mmapFdFile = range d.evtFiles {
+	for _, l := range d.eventListeners {
+		d.mmapFdFile = l.f
 		break
 	}
 
@@ -146,7 +172,6 @@ func (d *prussDrv) memmapInit() (err error) {
 	if err != nil {
 		return err
 	}
-	return
 
 	d.prus[0].dataramBase, err = syscall.Mmap(
 		int(d.mmapFdFile.Fd()),
@@ -163,6 +188,14 @@ func (d *prussDrv) memmapInit() (err error) {
 
 	d.intcBase = d.rambaseOffset(INTC_PHYS_BASE)
 
+	if len(d.intcBase) < PRU_INTC_HIER_REG {
+		return fmt.Errorf(
+			"Expected d.intcBase to be at least %d big, but it is only of length %d",
+			PRU_INTC_HIER_REG,
+			len(d.intcBase),
+		)
+	}
+
 	sharedBase := d.rambaseOffset(PRUSS_SHAREDRAM_BASE)
 	d.prus[0].sharedramBase = sharedBase
 	d.prus[1].sharedramBase = sharedBase
@@ -176,21 +209,23 @@ func (d *prussDrv) memmapInit() (err error) {
 	d.prus[0].iramBase = d.rambaseOffset(PRU0IRAM_PHYS_BASE)
 	d.prus[1].iramBase = d.rambaseOffset(PRU1IRAM_PHYS_BASE)
 
-	d.l3RamPhysBase, err = readIntFromFile(PRUSS_UIO_DRV_L3RAM_BASE)
-	if err != nil {
-		return err
+	if enableL3ram {
+		d.l3RamPhysBase, err = readIntFromFile(PRUSS_UIO_DRV_L3RAM_BASE)
+		if err != nil {
+			return err
+		}
+		l3RamMapSize, err := readIntFromFile(PRUSS_UIO_DRV_L3RAM_SIZE)
+		if err != nil {
+			return err
+		}
+		d.l3RamBase, err = syscall.Mmap(
+			int(d.mmapFdFile.Fd()),
+			int64(PRUSS_UIO_MAP_OFFSET_L3RAM),
+			int(l3RamMapSize),
+			syscall.PROT_READ|syscall.PROT_WRITE,
+			syscall.MAP_SHARED,
+		)
 	}
-	l3RamMapSize, err := readIntFromFile(PRUSS_UIO_DRV_L3RAM_SIZE)
-	if err != nil {
-		return err
-	}
-	d.l3RamBase, err = syscall.Mmap(
-		int(d.mmapFdFile.Fd()),
-		int64(PRUSS_UIO_MAP_OFFSET_L3RAM),
-		int(l3RamMapSize),
-		syscall.PROT_READ|syscall.PROT_WRITE,
-		syscall.MAP_SHARED,
-	)
 
 	d.extRamPhysBase, err = readIntFromFile(PRUSS_UIO_DRV_EXTRAM_BASE)
 	if err != nil {
@@ -211,49 +246,30 @@ func (d *prussDrv) memmapInit() (err error) {
 	return
 }
 
-func (d *prussDrv) consumeEvents(evtOut EvtOut, c chan int, f *os.File) {
-	buf := make([]byte, 4)
-
-	numEventsBuff := (*uint32)(unsafe.Pointer(&buf[0]))
-
-	for {
-		n, err := f.Read(buf)
-		switch {
-		case err == nil && n == len(buf):
-			c <- int(*numEventsBuff)
-			*(*uint32)(unsafe.Pointer(&d.intcBase[PRU_INTC_HIEISR_REG])) = uint32(evtOut) + 2
-		case err == io.EOF:
-			break
-		case n != len(buf):
-			panic("read bytes not as long as buff.  don't know what to do :(")
-
-		default:
-			panic("error closing stream")
-		}
+func (d *prussDrv) OpenInterrupt(evtOut EvtOut) (l EventListener, err error) {
+	if l, found := d.eventListeners[evtOut]; found {
+		return l, nil
 	}
 
-	close(c)
-}
-
-func (d *prussDrv) OpenInterrupt(evtOut EvtOut) (intcChan chan int, err error) {
-	if chn, found := d.evtChans[evtOut]; found {
-		return chn, nil
-	}
-
-	d.evtFiles[evtOut], err = os.OpenFile(
+	f, err := os.OpenFile(
 		"/dev/uio"+strconv.Itoa(int(evtOut)),
 		os.O_SYNC|os.O_RDWR,
 		0600,
 	)
 
-
 	if err != nil {
 		return
 	}
 
-	d.evtChans[evtOut] = make(chan int)
+	ret := &eventListener{
+		f:   f,
+		drv: d,
+		in:  make(chan bool),
+		out: make(chan uint32),
+		evt: evtOut,
+	}
 
-	go d.consumeEvents(evtOut, d.evtChans[evtOut], d.evtFiles[evtOut])
+	d.eventListeners[evtOut] = ret
 
 	// We initialize memmap stuff here since it uses it
 	if d.mmapFdFile == nil {
@@ -261,14 +277,88 @@ func (d *prussDrv) OpenInterrupt(evtOut EvtOut) (intcChan chan int, err error) {
 			return nil, err
 		}
 	}
-	return
+
+	go ret.consumeEvents()
+
+	return ret, nil
 }
 
 func (d *prussDrv) Pru(pruNum int) (pru Pru) {
 	return &d.prus[0]
 }
 
+// Returns an int pointer into the interrupt register offset by bytes
+func (d *prussDrv) intcOffsetInt(offsetBytes uint32, offsetInt int) *uint32 {
+	offset := int(offsetBytes) + offsetInt*int(unsafe.Sizeof(uint32(0)))
+	if offset + int(unsafe.Sizeof(uint32(0))) - 1 > len(d.intcBase) {
+		log.Panicf("Invalid offset %d. Max size of intc is %d", offset, len(d.intcBase))
+	}
+	sPtr := &d.intcBase[offset]
+	return (*uint32)(unsafe.Pointer(sPtr))
+}
+
+func (d *prussDrv) intcSetCmr(sysevt uint16, channel uint16) {
+	offset := PRU_INTC_CMR1_REG + uint32(sysevt & ^(uint16(0x3)))
+	*d.intcOffsetInt(offset, 0) |= ((uint32(channel) & 0xF) << ((uint32(sysevt) & 0x3) << 3))
+}
+
+func (d *prussDrv) intcSetHmr(channel uint16, host uint16) {
+	offset := PRU_INTC_HMR1_REG + uint32(channel & ^(uint16(0x3)))
+	*d.intcOffsetInt(offset, 0) |= ((uint32(host) & 0xF) << ((uint32(channel) & 0x3) << 3))
+}
+
+// This is a transliteration of pruss's prussdrv_pruintc_init.
 func (d *prussDrv) InitInterrupts() (err error) {
+	p := d.intcOffsetInt(PRU_INTC_SIPR1_REG, 0)
+	*p = 0xFFFFFFFF
+	*d.intcOffsetInt(PRU_INTC_SIPR2_REG, 0) = 0xFFFFFFFF
+	for i := 0; i < NUM_PRU_SYS_EVTS; i++ {
+		*d.intcOffsetInt(PRU_INTC_CMR1_REG, i) = 0x0
+	}
+
+	for evt, channel := range d.initData.SysevtToChannelMap {
+		d.intcSetCmr(evt, channel)
+	}
+
+	for i := 0; i < NUM_PRU_HOSTS; i++ {
+		*d.intcOffsetInt(PRU_INTC_HMR1_REG, i) = 0x0
+	}
+
+	for channel, host := range d.initData.ChannelToHostMap {
+		d.intcSetHmr(channel, host)
+	}
+
+	*d.intcOffsetInt(PRU_INTC_SITR1_REG, 0) = 0x0
+	*d.intcOffsetInt(PRU_INTC_SITR2_REG, 0) = 0x0
+
+	var mask1, mask2 uint32
+
+	for _, sysevt := range d.initData.SysevtsEnabled {
+		switch {
+		case sysevt < 32:
+			mask1 |= 1 << sysevt
+		case sysevt < 64:
+			mask2 |= 1 << sysevt
+		default:
+			return fmt.Errorf("SYS_EVT%d out of range", sysevt)
+		}
+	}
+
+	*d.intcOffsetInt(PRU_INTC_ESR1_REG, 0) = mask1
+	*d.intcOffsetInt(PRU_INTC_SECR1_REG, 0) = mask1
+	*d.intcOffsetInt(PRU_INTC_ESR2_REG, 0) = mask2
+	*d.intcOffsetInt(PRU_INTC_SECR2_REG, 0) = mask2
+
+	for _, h := range d.initData.HostEnabled {
+		// We set this one at a time to enable the interrupts
+		// see http://elinux.org/PRUSSv2_Interrupt_Controller#Enabling_the_Interrupt_Controller
+		if h < MAX_HOSTS_SUPPORTED {
+			*d.intcOffsetInt(PRU_INTC_HIEISR_REG, 0) = uint32(h)
+		}
+	}
+
+	*d.intcOffsetInt(PRU_INTC_GER_REG, 0) = 0x1
+
 	return
 }
 
@@ -282,7 +372,9 @@ func clearAndMunmap(v *[]byte) {
 func (d *prussDrv) Close() (err error) {
 	clearAndMunmap(&d.prus[0].dataramBase)
 	d.intcBase = nil
-	clearAndMunmap(&d.l3RamBase)
+	if enableL3ram {
+		clearAndMunmap(&d.l3RamBase)
+	}
 	clearAndMunmap(&d.extRamBase)
 
 	for _, pru := range d.prus {
@@ -290,14 +382,11 @@ func (d *prussDrv) Close() (err error) {
 		pru.dataramBase = nil
 		pru.debugBase = nil
 		pru.iramBase = nil
+		pru.sharedramBase = nil
 	}
 
-	for k, f := range d.evtFiles {
-		f.Close()
-		for _ = range d.evtChans[k] {
-		}
-		delete(d.evtFiles, k)
-		delete(d.evtChans, k)
+	for _, l := range d.eventListeners {
+		l.Close()
 	}
 
 	d.mmapFdFile = nil
@@ -390,4 +479,44 @@ func (d *prussDrv) ClearEvent(eventNum uint) (err error) {
 	*(*uint32)(unsafe.Pointer(&d.intcBase[reg])) = uint32(eventNum)
 
 	return
+}
+
+func (el *eventListener) consumeEvents() {
+	defer close(el.out)
+
+	buf := make([]byte, 4)
+
+	numEventsBuff := (*uint32)(unsafe.Pointer(&buf[0]))
+
+	for _ = range el.in {
+		n, err := el.f.Read(buf)
+		switch {
+		case err == nil && n == len(buf):
+			el.out <- *numEventsBuff
+			*el.drv.intcOffsetInt(PRU_INTC_HIEISR_REG, 0) = uint32(el.evt) + 2
+		case err == io.EOF:
+			return
+		case err == nil && n != len(buf):
+			log.Panicln("read bytes not as long as buff.  don't know what to do :(")
+		default:
+			log.Panicln("error reading stream. error: ", err)
+		}
+	}
+}
+
+func (el *eventListener) Wait() uint32 {
+	return <-el.WaitC()
+}
+
+func (el *eventListener) WaitC() <-chan uint32 {
+	el.in <- true
+	return el.out
+}
+
+func (el *eventListener) Close() {
+	close(el.in)
+	for _ = range el.out {
+	}
+	el.f.Close()
+
 }

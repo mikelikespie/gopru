@@ -29,24 +29,13 @@ const (
 	PRU_EVTOUT5 = 7
 	PRU_EVTOUT6 = 8
 	PRU_EVTOUT7 = 9
-
-	PRU0_HOSTEN_MASK        = 0x0001
-	PRU1_HOSTEN_MASK        = 0x0002
-	PRU_EVTOUT0_HOSTEN_MASK = 0x0004
-	PRU_EVTOUT1_HOSTEN_MASK = 0x0008
-	PRU_EVTOUT2_HOSTEN_MASK = 0x0010
-	PRU_EVTOUT3_HOSTEN_MASK = 0x0020
-	PRU_EVTOUT4_HOSTEN_MASK = 0x0040
-	PRU_EVTOUT5_HOSTEN_MASK = 0x0080
-	PRU_EVTOUT6_HOSTEN_MASK = 0x0100
-	PRU_EVTOUT7_HOSTEN_MASK = 0x0200
 )
 
 type PruIntcInitData struct {
 	SysevtsEnabled     []uint8
 	SysevtToChannelMap SysevtToChannelMap
 	ChannelToHostMap   ChannelToHostMap
-	HostEnabledBitmask uint
+	HostEnabled        []uint8
 }
 
 var DefaultInitData = PruIntcInitData{
@@ -72,6 +61,10 @@ var DefaultInitData = PruIntcInitData{
 		CHANNEL2: PRU_EVTOUT0,
 		CHANNEL3: PRU_EVTOUT1,
 	},
-
-	HostEnabledBitmask: (PRU0_HOSTEN_MASK | PRU1_HOSTEN_MASK | PRU_EVTOUT0_HOSTEN_MASK | PRU_EVTOUT1_HOSTEN_MASK),
+	HostEnabled: []uint8{
+		PRU0,
+		PRU1,
+		PRU_EVTOUT0,
+		PRU_EVTOUT1,
+	},
 }

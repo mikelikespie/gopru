@@ -1,12 +1,12 @@
 package pruss
 
 const (
-	PAGE_SIZE          = 4096
-	PRUSS_MAX_IRAM_SIZE    = 8192
-	PRUSS_IRAM_SIZE = 8192
-	PRUSS_DATARAM_SIZE = 512
+	PAGE_SIZE           = 4096
+	PRUSS_MAX_IRAM_SIZE = 8192
+	PRUSS_IRAM_SIZE     = 8192
+	PRUSS_DATARAM_SIZE  = 512
 
-	PRUSS_MMAP_SIZE       = 0x40000
+	PRUSS_MMAP_SIZE = 0x40000
 
 	DATARAM0_PHYS_BASE    = 0x4a300000
 	DATARAM1_PHYS_BASE    = 0x4a302000
@@ -90,11 +90,12 @@ const (
 	PRUSS_UIO_DRV_PRUSS_BASE   = "/sys/class/uio/uio0/maps/map0/addr"
 	PRUSS_UIO_DRV_PRUSS_SIZE   = "/sys/class/uio/uio0/maps/map0/size"
 
+	PRUSS_UIO_MAP_OFFSET_EXTRAM = 1 * PAGE_SIZE
+	PRUSS_UIO_DRV_EXTRAM_BASE   = "/sys/class/uio/uio0/maps/map1/addr"
+	PRUSS_UIO_DRV_EXTRAM_SIZE   = "/sys/class/uio/uio0/maps/map1/size"
+
+	// Unused. Also if we're ging to use this, the path for the EXTRAM needs to change
 	PRUSS_UIO_MAP_OFFSET_L3RAM = 1 * PAGE_SIZE
 	PRUSS_UIO_DRV_L3RAM_BASE   = "/sys/class/uio/uio0/maps/map1/addr"
 	PRUSS_UIO_DRV_L3RAM_SIZE   = "/sys/class/uio/uio0/maps/map1/size"
-
-	PRUSS_UIO_MAP_OFFSET_EXTRAM = 2 * PAGE_SIZE
-	PRUSS_UIO_DRV_EXTRAM_BASE   = "/sys/class/uio/uio0/maps/map2/addr"
-	PRUSS_UIO_DRV_EXTRAM_SIZE   = "/sys/class/uio/uio0/maps/map2/size"
 )
