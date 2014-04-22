@@ -14,6 +14,7 @@ import (
 
 type PruRamId int
 type EvtOut int
+type PruNum int
 
 const (
 	NUM_PRU_HOSTIRQS = 8
@@ -34,6 +35,10 @@ const (
 	PRU_EVTOUT_5 EvtOut = 5
 	PRU_EVTOUT_6 EvtOut = 6
 	PRU_EVTOUT_7 EvtOut = 7
+
+	Pru0     PruNum = 0
+	Pru1     PruNum = 1
+	PruCount PruNum = 2
 )
 
 type PruRamType int
@@ -53,6 +58,11 @@ type ChannelToHostMap map[Channel]Host
 
 const enableL3ram = false
 
+var PruEvts = []EvtOut{
+	PRU_EVTOUT_0,
+	PRU_EVTOUT_1,
+}
+
 type Pru interface {
 	Reset() error
 	Enable() error
@@ -60,25 +70,37 @@ type Pru interface {
 	WriteMemory(ramType PruRamType, writeOffset uint, sourceData []byte) error
 	ExecProgram(filename string) error
 	ExecImage(image []byte) error
+
+	// The default evt out to listen on
+	DefaultEvtOut() EvtOut
+
+	DataramMem() []byte
 }
 
 type PrussDrv interface {
 	OpenInterrupt(evtOut EvtOut) (l EventListener, err error)
 
-	Pru(pruNum int) (pru Pru)
+	Pru(pruNum PruNum) (pru Pru)
 	InitInterrupts() (err error)
 
 	Close() (err error)
 
+	// Returns a reference to the DDR memory
+	ExtRamMem() []byte
+	ExtRamPhys() uintptr
+	SharedRamMem() []byte
+
 	SendEvent(eventNum EventNum) error
+
+	GetPhysicalAddress(ptr unsafe.Pointer) uintptr
 }
 
 func InitDrv() (drv PrussDrv, err error) {
 	drv = &prussDrv{
 		initData: DefaultInitData,
 		prus: []prussPru{
-			prussPru{pruNum: 0},
-			prussPru{pruNum: 1},
+			prussPru{pruNum: Pru0},
+			prussPru{pruNum: Pru1},
 		},
 		eventListeners: make(map[EvtOut]*eventListener),
 	}
@@ -87,15 +109,14 @@ func InitDrv() (drv PrussDrv, err error) {
 }
 
 type prussPru struct {
-	drv         *prussDrv
-	pruNum      int
-	dataramBase []byte
-	controlBase []byte
-	// Remapped offset 0 of controlBase
-	controlBasePtr *uint32
-	debugBase      []byte
-	iramBase       []byte
-	sharedramBase  []byte
+	drv        *prussDrv
+	pruNum     PruNum
+	dataramMem []byte
+	controlMem []byte
+	// Remapped offset 0 of controlMem
+	controlMemPtr *uint32
+	debugMem      []byte
+	iramMem       []byte
 }
 
 // Outer is for requests, inner is chan for responses
@@ -133,29 +154,35 @@ type prussDrv struct {
 
 	mmapFdFile *os.File
 
-	physBase       uint64
-	l3RamPhysBase  uint64
-	extRamPhysBase uint64
+	physMem        uintptr
+	l3RamPhysBase  uintptr
+	extRamPhysBase uintptr
 
 	// mmapped files
-	intcBase   []byte
-	l3RamBase  []byte
-	extRamBase []byte
+	intcMem      []byte
+	l3RamMem     []byte
+	extRamMem    []byte
+	sharedramMem []byte
 }
 
-func readIntFromFile(fileName string) (num uint64, err error) {
+func readIntFromFile(fileName string) (num uintptr, err error) {
 	c, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		return 0, err
 	}
 
-	return strconv.ParseUint(strings.TrimSpace(string(c[2:])), 16, 32)
+	i, err := strconv.ParseUint(strings.TrimSpace(string(c[2:])), 16, 32)
+	if err == nil {
+		num = uintptr(i)
+
+	}
+	return
 }
 
-func (d *prussDrv) rambaseOffset(physBase int) []byte {
-	offset := physBase - DATARAM0_PHYS_BASE
-	ramBase := d.prus[0].dataramBase
-	return ramBase[offset:]
+func (d *prussDrv) rambaseOffset(physMem int) []byte {
+	offset := physMem - DATARAM0_PHYS_BASE
+	ramMem := d.prus[0].dataramMem
+	return ramMem[offset:]
 }
 
 func (d *prussDrv) memmapInit() (err error) {
@@ -170,7 +197,7 @@ func (d *prussDrv) memmapInit() (err error) {
 		panic("We should have an fd by now")
 	}
 
-	d.physBase, err = readIntFromFile(PRUSS_UIO_DRV_PRUSS_BASE)
+	d.physMem, err = readIntFromFile(PRUSS_UIO_DRV_PRUSS_BASE)
 	if err != nil {
 		return err
 	}
@@ -180,7 +207,7 @@ func (d *prussDrv) memmapInit() (err error) {
 		return err
 	}
 
-	d.prus[0].dataramBase, err = syscall.Mmap(
+	d.prus[0].dataramMem, err = syscall.Mmap(
 		int(d.mmapFdFile.Fd()),
 		int64(PRUSS_UIO_MAP_OFFSET_PRUSS),
 		int(prussMapSize),
@@ -191,33 +218,31 @@ func (d *prussDrv) memmapInit() (err error) {
 		return err
 	}
 
-	d.prus[1].dataramBase = d.rambaseOffset(DATARAM1_PHYS_BASE)
+	d.prus[1].dataramMem = d.rambaseOffset(DATARAM1_PHYS_BASE)
 
-	d.intcBase = d.rambaseOffset(INTC_PHYS_BASE)
+	d.intcMem = d.rambaseOffset(INTC_PHYS_BASE)
 
-	if len(d.intcBase) < PRU_INTC_HIER_REG {
+	if len(d.intcMem) < PRU_INTC_HIER_REG {
 		return fmt.Errorf(
-			"Expected d.intcBase to be at least %d big, but it is only of length %d",
+			"Expected d.intcMem to be at least %d big, but it is only of length %d",
 			PRU_INTC_HIER_REG,
-			len(d.intcBase),
+			len(d.intcMem),
 		)
 	}
 
-	sharedBase := d.rambaseOffset(PRUSS_SHAREDRAM_BASE)
-	d.prus[0].sharedramBase = sharedBase
-	d.prus[1].sharedramBase = sharedBase
+	d.sharedramMem = d.rambaseOffset(PRUSS_SHAREDRAM_BASE)
 
-	d.prus[0].controlBase = d.rambaseOffset(PRU0CONTROL_PHYS_BASE)
-	d.prus[0].controlBasePtr = (*uint32)(unsafe.Pointer(&d.prus[0].controlBase[0]))
+	d.prus[0].controlMem = d.rambaseOffset(PRU0CONTROL_PHYS_BASE)
+	d.prus[0].controlMemPtr = (*uint32)(unsafe.Pointer(&d.prus[0].controlMem[0]))
 
-	d.prus[1].controlBase = d.rambaseOffset(PRU1CONTROL_PHYS_BASE)
-	d.prus[1].controlBasePtr = (*uint32)(unsafe.Pointer(&d.prus[1].controlBase[0]))
+	d.prus[1].controlMem = d.rambaseOffset(PRU1CONTROL_PHYS_BASE)
+	d.prus[1].controlMemPtr = (*uint32)(unsafe.Pointer(&d.prus[1].controlMem[0]))
 
-	d.prus[0].debugBase = d.rambaseOffset(PRU0DEBUG_PHYS_BASE)
-	d.prus[1].debugBase = d.rambaseOffset(PRU1DEBUG_PHYS_BASE)
+	d.prus[0].debugMem = d.rambaseOffset(PRU0DEBUG_PHYS_BASE)
+	d.prus[1].debugMem = d.rambaseOffset(PRU1DEBUG_PHYS_BASE)
 
-	d.prus[0].iramBase = d.rambaseOffset(PRU0IRAM_PHYS_BASE)
-	d.prus[1].iramBase = d.rambaseOffset(PRU1IRAM_PHYS_BASE)
+	d.prus[0].iramMem = d.rambaseOffset(PRU0IRAM_PHYS_BASE)
+	d.prus[1].iramMem = d.rambaseOffset(PRU1IRAM_PHYS_BASE)
 
 	if enableL3ram {
 		d.l3RamPhysBase, err = readIntFromFile(PRUSS_UIO_DRV_L3RAM_BASE)
@@ -228,7 +253,7 @@ func (d *prussDrv) memmapInit() (err error) {
 		if err != nil {
 			return err
 		}
-		d.l3RamBase, err = syscall.Mmap(
+		d.l3RamMem, err = syscall.Mmap(
 			int(d.mmapFdFile.Fd()),
 			int64(PRUSS_UIO_MAP_OFFSET_L3RAM),
 			int(l3RamMapSize),
@@ -245,7 +270,7 @@ func (d *prussDrv) memmapInit() (err error) {
 	if err != nil {
 		return err
 	}
-	d.extRamBase, err = syscall.Mmap(
+	d.extRamMem, err = syscall.Mmap(
 		int(d.mmapFdFile.Fd()),
 		int64(PRUSS_UIO_MAP_OFFSET_EXTRAM),
 		int(extRamMapSize),
@@ -280,6 +305,7 @@ func (d *prussDrv) OpenInterrupt(evtOut EvtOut) (l EventListener, err error) {
 	}
 
 	d.eventListeners[evtOut] = ret
+	go ret.consumeEvents()
 
 	// We initialize memmap stuff here since it uses it
 	if d.mmapFdFile == nil {
@@ -288,22 +314,20 @@ func (d *prussDrv) OpenInterrupt(evtOut EvtOut) (l EventListener, err error) {
 		}
 	}
 
-	go ret.consumeEvents()
-
 	return ret, nil
 }
 
-func (d *prussDrv) Pru(pruNum int) (pru Pru) {
-	return &d.prus[0]
+func (d *prussDrv) Pru(pruNum PruNum) (pru Pru) {
+	return &d.prus[pruNum]
 }
 
 // Returns an int pointer into the interrupt register offset by bytes
 func (d *prussDrv) intcOffsetInt(offsetBytes uint32, offsetInt int) *uint32 {
 	offset := int(offsetBytes) + offsetInt*int(unsafe.Sizeof(uint32(0)))
-	if offset+int(unsafe.Sizeof(uint32(0)))-1 > len(d.intcBase) {
-		log.Panicf("Invalid offset %d. Max size of intc is %d", offset, len(d.intcBase))
+	if offset+int(unsafe.Sizeof(uint32(0)))-1 > len(d.intcMem) {
+		log.Panicf("Invalid offset %d. Max size of intc is %d", offset, len(d.intcMem))
 	}
-	sPtr := &d.intcBase[offset]
+	sPtr := &d.intcMem[offset]
 	return (*uint32)(unsafe.Pointer(sPtr))
 }
 
@@ -388,24 +412,24 @@ func clearAndMunmap(v *[]byte) {
 }
 
 func (d *prussDrv) Close() (err error) {
-	clearAndMunmap(&d.prus[0].dataramBase)
-	d.intcBase = nil
-	if enableL3ram {
-		clearAndMunmap(&d.l3RamBase)
-	}
-	clearAndMunmap(&d.extRamBase)
-
-	for _, pru := range d.prus {
-		pru.controlBase = nil
-		pru.controlBasePtr = nil
-		pru.dataramBase = nil
-		pru.debugBase = nil
-		pru.iramBase = nil
-		pru.sharedramBase = nil
-	}
-
 	for _, l := range d.eventListeners {
 		l.Close()
+	}
+
+	clearAndMunmap(&d.prus[0].dataramMem)
+	d.intcMem = nil
+	d.sharedramMem = nil
+	if enableL3ram {
+		clearAndMunmap(&d.l3RamMem)
+	}
+	clearAndMunmap(&d.extRamMem)
+
+	for _, pru := range d.prus {
+		pru.controlMem = nil
+		pru.controlMemPtr = nil
+		pru.dataramMem = nil
+		pru.debugMem = nil
+		pru.iramMem = nil
 	}
 
 	d.mmapFdFile = nil
@@ -414,16 +438,16 @@ func (d *prussDrv) Close() (err error) {
 }
 
 func (p *prussPru) Enable() (err error) {
-	*p.controlBasePtr = 2
+	*p.controlMemPtr = 2
 	return
 }
 
 func (p *prussPru) Reset() (err error) {
-	*p.controlBasePtr = 0
+	*p.controlMemPtr = 0
 	return
 }
 func (p *prussPru) Disable() (err error) {
-	*p.controlBasePtr = 1
+	*p.controlMemPtr = 1
 	return
 }
 
@@ -431,11 +455,11 @@ func (p *prussPru) WriteMemory(ramType PruRamType, writeOffset uint, sourceData 
 	var memory []byte
 	switch ramType {
 	case IRAM:
-		memory = p.iramBase
+		memory = p.iramMem
 	case DATARAM:
-		memory = p.dataramBase
+		memory = p.dataramMem
 	case SHARED:
-		memory = p.sharedramBase
+		memory = p.drv.sharedramMem
 	}
 
 	copy(memory[writeOffset:], sourceData)
@@ -479,6 +503,25 @@ func (p *prussPru) ExecProgram(filename string) (err error) {
 	return p.ExecImage(b)
 }
 
+func (p *prussPru) DefaultEvtOut() EvtOut {
+	return PruEvts[p.pruNum]
+}
+
+func (p *prussPru) DataramMem() []byte {
+	return p.dataramMem
+}
+
+func (d *prussDrv) ExtRamMem() []byte {
+	return d.extRamMem
+}
+func (d *prussDrv) ExtRamPhys() uintptr {
+	return uintptr(d.extRamPhysBase)
+}
+
+func (d *prussDrv) SharedRamMem() []byte {
+	return d.sharedramMem
+}
+
 func (d *prussDrv) SendEvent(eventNum EventNum) (err error) {
 
 	switch {
@@ -492,6 +535,58 @@ func (d *prussDrv) SendEvent(eventNum EventNum) (err error) {
 
 	return
 }
+
+func (d *prussDrv) GetPhysicalAddress(address unsafe.Pointer) (physAddr uintptr) {
+
+	addr := uintptr(address)
+	dataRamBase := uintptr(unsafe.Pointer(&d.prus[0].dataramMem[0]))
+
+	var l3base, l3end uintptr
+
+	if enableL3ram {
+		l3base = uintptr(unsafe.Pointer(&d.l3RamMem[0]))
+		l3end = l3base + uintptr(len(d.l3RamMem))
+	}
+
+	extBase := uintptr(unsafe.Pointer(&d.extRamMem[0]))
+	extEnd := extBase + uintptr(len(d.extRamMem))
+
+	switch {
+	case addr >= dataRamBase && addr < dataRamBase+uintptr(len(d.prus[0].dataramMem)):
+		physAddr = addr - dataRamBase + d.extRamPhysBase
+
+	case enableL3ram && addr >= l3base && addr < l3end:
+		physAddr = addr - l3base + d.l3RamPhysBase
+
+	case addr >= extBase && addr < extEnd:
+		physAddr = addr - extBase + d.extRamPhysBase
+	}
+	return
+}
+
+/*
+   unsigned int retaddr = 0;
+   if ((address >= prussdrv.pru0_dataram_base)
+       && (address <
+           prussdrv.pru0_dataram_base + prussdrv.pruss_map_size)) {
+       retaddr =
+           ((unsigned int) (address - prussdrv.pru0_dataram_base) +
+            prussdrv.pru0_dataram_phy_base);
+   } else if ((address >= prussdrv.l3ram_base)
+              && (address <
+                  prussdrv.l3ram_base + prussdrv.l3ram_map_size)) {
+       retaddr =
+           ((unsigned int) (address - prussdrv.l3ram_base) +
+            prussdrv.l3ram_phys_base);
+   } else if ((address >= prussdrv.extram_base)
+              && (address <
+                  prussdrv.extram_base + prussdrv.extram_map_size)) {
+       retaddr =
+           ((unsigned int) (address - prussdrv.extram_base) +
+            prussdrv.extram_phys_base);
+   }
+   return retaddr;
+*/
 
 func (el *eventListener) ClearEvent(eventNum EventNum) (err error) {
 	switch {
@@ -545,5 +640,4 @@ func (el *eventListener) Close() {
 	for _ = range el.out {
 	}
 	el.f.Close()
-
 }
