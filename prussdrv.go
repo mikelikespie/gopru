@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -47,7 +48,8 @@ const (
 	DATARAM PruRamType = 0
 	IRAM    PruRamType = iota
 	// This is shared between both PRUs
-	SHARED PruRamType = iota
+	SHARED   PruRamType = iota
+	EXTERNAL PruRamType = iota
 )
 
 type Channel uint16
@@ -75,6 +77,15 @@ type Pru interface {
 	DefaultEvtOut() EvtOut
 
 	DataramMem() []byte
+
+	// Maps a pointer to the ram type
+	// it will panic if things go wrong
+	// Usage:
+	// var iptr *int32
+	// pru.MapPointer(EXTERNAL, 0, &iptr)
+	// *iptr = 3
+	// The "map" operation itself isn't incredibly efficient, but the pointer will be directly mapped after this
+	MapPointer(ramType PruRamType, offset int, ptrPtr interface{})
 }
 
 type PrussDrv interface {
@@ -96,7 +107,7 @@ type PrussDrv interface {
 }
 
 func InitDrv() (drv PrussDrv, err error) {
-	drv = &prussDrv{
+	d := &prussDrv{
 		initData: DefaultInitData,
 		prus: []prussPru{
 			prussPru{pruNum: Pru0},
@@ -104,6 +115,12 @@ func InitDrv() (drv PrussDrv, err error) {
 		},
 		eventListeners: make(map[EvtOut]*eventListener),
 	}
+
+	for i, _ := range d.prus {
+		d.prus[i].drv = d
+	}
+
+	drv = d
 
 	return
 }
@@ -460,6 +477,8 @@ func (p *prussPru) WriteMemory(ramType PruRamType, writeOffset uint, sourceData 
 		memory = p.dataramMem
 	case SHARED:
 		memory = p.drv.sharedramMem
+	case EXTERNAL:
+		memory = p.drv.extRamMem
 	}
 
 	copy(memory[writeOffset:], sourceData)
@@ -509,6 +528,43 @@ func (p *prussPru) DefaultEvtOut() EvtOut {
 
 func (p *prussPru) DataramMem() []byte {
 	return p.dataramMem
+}
+
+func (p *prussPru) MapPointer(ramType PruRamType, offset int, ptr interface{}) {
+	ptrPtrVal := reflect.ValueOf(ptr)
+	if ptrPtrVal.Kind() != reflect.Ptr {
+		log.Panicln("Can only call MapPointer with a pointer to a pointer")
+	}
+
+	ptrVal := ptrPtrVal.Elem()
+	if ptrVal.Kind() != reflect.Ptr {
+		log.Panicln("Can only call MapPointer with a pointer to a pointer")
+	}
+
+	elemType := ptrVal.Type().Elem()
+
+	switch elemType.Kind() {
+	case reflect.Slice, reflect.Map, reflect.Interface, reflect.Chan:
+		log.Panicln("MapPointer does not support kind %+v", ptrPtrVal.Type())
+	default:
+	}
+
+	var memory []byte
+	switch ramType {
+	case IRAM:
+		memory = p.iramMem
+	case DATARAM:
+		memory = p.dataramMem
+	case SHARED:
+		memory = p.drv.sharedramMem
+	case EXTERNAL:
+		memory = p.drv.extRamMem
+	}
+
+	// Making a slice so it bounds checks
+	physPtr := uintptr(unsafe.Pointer(&memory[offset:elemType.Size()][0]))
+
+	*(*uintptr)(unsafe.Pointer(ptrPtrVal.Pointer())) = physPtr
 }
 
 func (d *prussDrv) ExtRamMem() []byte {

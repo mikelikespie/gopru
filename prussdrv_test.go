@@ -3,7 +3,6 @@ package pruss
 import (
 	"github.com/mikelikespie/gopru/pasm"
 	"testing"
-	"unsafe"
 )
 
 // one for pru1 one for pru2
@@ -176,15 +175,19 @@ func TestExtMem(t *testing.T) {
 	start := uint32(0xAABBCCDD)
 	expected := start + 0x01010101
 
-	extPtr := (*uint32)(unsafe.Pointer(&extRam[0]))
+
+	var extPtr, sharedPtr, dataramPtr *uint32
+
+	pru.MapPointer(EXTERNAL, 0, &extPtr)
+	pru.MapPointer(SHARED, 0, &sharedPtr)
+	pru.MapPointer(DATARAM, 0, &dataramPtr)
+
+	// Write the phys address of extram to dataram so the code can know
+	// where the extmem is
+	*dataramPtr = uint32(drv.ExtRamPhys())
+
 	*extPtr = start
-
-	// Pointer to shared memory. Not 100% sure why 2000 offset maps to
-	sharedPtr := (*uint32)(unsafe.Pointer(&drv.SharedRamMem()[0x0]))
 	*sharedPtr = start
-
-	// Write to the dataram so the code can know where the extmem is
-	*(*uint32)(unsafe.Pointer(&pru.DataramMem()[0])) = uint32(drv.ExtRamPhys())
 
 	if err = pru.ExecImage(extMemImage); err != nil {
 		t.Fatal("Error executing image")
